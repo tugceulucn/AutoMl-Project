@@ -1,0 +1,32 @@
+# Gerekli kütüphaneleri içe aktarın
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# Örnek veri oluşturun
+data = {
+    'Feature1': [1, 2, 3, 4, 5],
+    'Feature2': [5, 4, 3, 2, 1],
+    'Target': ['A', 'B', 'A', 'B', 'A']
+}
+df = pd.DataFrame(data)
+
+# Bağımsız değişkenler (X) ve bağımlı değişken (y) olarak ayırın
+X = df[['Feature1', 'Feature2']]
+y = df['Target']
+
+# Eğitim ve test setlerine veriyi böler
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Random Forest sınıflandırıcı modelini oluşturun ve eğitin
+rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_classifier.fit(X_train, y_train)
+
+# Test setini kullanarak tahminler yapın
+y_pred = rf_classifier.predict(X_test)
+
+# Doğruluk skorunu hesaplayın
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
