@@ -185,7 +185,7 @@ def automl(df):
             return      
         with st.container(border=True):
             st.info("İşleminiz bir süre devam edecek. Haydi başlayalım!", icon='🎉')
-            df = data_preprocessing(df)
+            df, label = data_preprocessing(df)
 
             # Model seçenekleri ve kısaltmaları
             classification_models = [
@@ -216,22 +216,26 @@ def automl(df):
             # Hedef değişkeni seçimi ve problem türü seçimi
             problem_type = st.selectbox("Problemin türünü seçin:", options=['Sınıflandırma', 'Regresyon'])
             hedef_degisken = st.selectbox("Hedef Değişkeni Seçin", df.columns.tolist())
+            st.write(problem_type)
+
             if hedef_degisken in df.columns:
                 X = df.drop(hedef_degisken, axis=1)  # Bağımsız değişkenler
                 Y = df[hedef_degisken]  # Hedef değişken
             else:
                 st.write("Hedef değişken adı geçersiz. Lütfen mevcut bir hedef değişken adı girin.")
                 return
-        
+            
             if problem_type == "Sınıflandırma":
                 all_models = [name for name, _ in classification_models]
-                first_model = st.selectbox("1. modeli seçin:", all_models, default=[])
-                second_model = st.selectbox("2. modeli seçin:", all_models, default=[])
-                selected_models = selected_models.append(first_model, second_model)
+                first_model = st.selectbox("İlk modeli seçin:", all_models, index=0)
+                second_model = st.selectbox("İkinci modeli seçin:", all_models, index=0)
+                selected_models = [first_model, second_model]
+                
             else:
                 selected_models = ['LinearRegression', 'Ridge', 'Lasso', 'ElasticNet']
 
             ml_start = st.button("Makine Öğrenmesini Başlat.")
+            
             if ml_start:
                 st.info("Makine öğrenmesi başlatıldı. Lütfen sonuçları bekleyiniz.", icon='🤖')
 
@@ -355,8 +359,8 @@ def manualml(df):
     signature = inspect.signature(selected_model_class)
     for param in signature.parameters.values():
         if param.name != 'self':
-            prm_names.append(str({param.name}))
-            prm_def.append(str({param.default}))
+            prm_names.append(str(param.name))
+            prm_def.append(str(param.default))
 
     data = pd.DataFrame({
                 "Parameters": [i for i in prm_names],
@@ -365,16 +369,43 @@ def manualml(df):
     
     st.dataframe(data)
     # Kullanıcıdan parametreleri al
-    while True:
-        param = st.multiselect("Parametreleri seçin:", prm_names)
-        value = st.number_input(f"{param} değeri:")
-        params[param] = float(value) if value.replace('.', '', 1).isdigit() else value
-        if st.button("parametreleri al"):
-            break
+    selected_params = []
     
+    params = {}
+
+    selected_values = st.multiselect("Parametreleri seçin:", prm_names, key="multiselect")
+    mm =''
+    value = None  # Başlangıçta None değeri atanıyor
+
+    # After getting all the parameters, prompt the user to input their values
+    value = None  # Başlangıçta None değeri atanıyor
+    if len(selected_values) > 0:
+        value = st.text_input(f"{selected_values} için  sırasıyla boşluk bırakarak değer gir:")
+    value_list = []
+    if st.button("Params are ready."):
+        value_list = value.split()
+    
+    # Her bir öğeyi uygun türde bir değere dönüştür
+    converted_values = []
+    for val in value_list:
+        if val.lower() == "true":
+            converted_values.append(True)
+        elif val.lower() == "false":
+            converted_values.append(False)
+        else:
+            try:
+                converted_values.append(float(val))
+            except ValueError:
+                converted_values.append(val)  # Hata durumunda aynı değeri kullan
+
+    print(converted_values)
+
+    params = dict(zip(selected_values, converted_values))
+    st.write(params)
     # Modeli parametrelerle oluştur
     model = selected_model_class(**params)
-
+    st.write(model)
+    
     # Veriyi eğitim ve test setine ayır
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
@@ -383,7 +414,7 @@ def manualml(df):
     y_pred = model.predict(X_test)
 
     # Modelin parametrelerini yazdırma
-    st.write("Model Parametreleri:", model.get_params())
+    #st.write("Model Parametreleri:", model.get_params())
     # Sonuçları değerlendir
     if selected_model_name[0] in ["LIR", "Ridge Regression", "Lasso Regression", "ElasticNet Regresyon"]:
         # Regresyon modelleri için
@@ -408,13 +439,18 @@ def manualml(df):
         st.write("F1 Score:", f1)
         st.write("ROC-AUC Score:", roc_auc)
         st.write("Confusion Matrix:\n", conf_matrix)
-
+    
     # Modeli kaydetme
     save_choice = st.selectbox("Modeli kaydetmek ister misiniz?:", ["Evet", "Hayır"])
     if save_choice== "Evet":
         format_choice = st.selectbox("Lütfen kaydetmek istediğiniz dosya formatını seçin:", ["joblib", "pickle", "onnx"])
         if format_choice == "joblib":
-            st.download_button("Download some text", joblib.dump(model, "model_ATOMai"))
+            # Modeli joblib ile dosyaya kaydetme
+            joblib.dump(model, "model_ATOMai.pkl")
+
+            # Dosyayı Streamlit ile indirme düğmesine bağlama
+            st.download_button("Modeli İndir", "model_ATOMai.pkl", "İndir")
+            #st.download_button("Download some text", joblib.dump(model, "model_ATOMai"))
         elif format_choice == "pickle":
             with open("model_ATOMai", 'wb') as f:
                 st.download_button("Download some text", pickle.dump(model, f))
