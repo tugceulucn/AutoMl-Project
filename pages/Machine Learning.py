@@ -426,19 +426,13 @@ def manualml(df):
         precision = precision_score(y_test, y_pred, average='weighted')
         recall = recall_score(y_test, y_pred, average='weighted')
         f1 = f1_score(y_test, y_pred, average='weighted')
-        try:
-            roc_auc = roc_auc_score(y_test, y_pred)
-        except ValueError:
-            roc_auc = "ROC-AUC skoru hesaplanamadı. (Muhtemelen hedef değişken birden fazla sınıfa sahip.)"
-        conf_matrix = confusion_matrix(y_test, y_pred)
+        
 
         # Sonuçları yazdırma
         st.write("Accuracy:", accuracy)
         st.write("Precision:", precision)
         st.write("Recall:", recall)
         st.write("F1 Score:", f1)
-        st.write("ROC-AUC Score:", roc_auc)
-        st.write("Confusion Matrix:\n", conf_matrix)
     
     # Modeli kaydetme
     save_choice = st.selectbox("Modeli kaydetmek ister misiniz?:", ["Evet", "Hayır"])
