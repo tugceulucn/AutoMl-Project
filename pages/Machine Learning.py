@@ -1,265 +1,465 @@
-import streamlit as st
-from streamlit_option_menu import option_menu
-from streamlit_card import card
-from streamlit_lottie import st_lottie  # pip install streamlit-lottie
-import pandas as pd
-import yaml
+import zipfile
+import json
+import inspect
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from itertools import product
+
 import matplotlib.pyplot as plt
-from bokeh.plotting import figure
 import numpy as np
-# Gerekli kütüphaneler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, mean_squared_error
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.linear_model import LogisticRegression, Ridge, Lasso, ElasticNet
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, BaggingClassifier, ExtraTreesClassifier
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.gaussian_process import GaussianProcessClassifier
 import pandas as pd
+import streamlit as st
+import yaml, joblib, pickle
 
-# Page configuration
-st.set_page_config(
-    page_title="ATOM AI",
-    layout="wide",
-)
+from bokeh.plotting import figure
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, ExtraTreesClassifier, GradientBoostingClassifier, \
+    RandomForestClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, LogisticRegression, Ridge
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, mean_squared_error, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 
-selected = option_menu(None, ["INPUT", "OUTPUT"], 
-    icons=["bi bi-gear-fill", "bi bi-rocket-takeoff"], 
-    menu_icon="cast", default_index=0, orientation="horizontal",
-    styles={
-        "container": {"padding": "0!important", "background-color": "#fafafa"},
-        "icon": {"color": "orange", "font-size": "14px"}, 
-        "nav-link": {"font-size": "14px", "text-align": "left", "margin":"0px", "--hover-color": "#eee"},
-        "nav-link-selected": {"background-color": "blue"},
-    }
-) 
+from streamlit_card import card
+from streamlit_lottie import st_lottie
+from streamlit_option_menu import option_menu
+from warnings import filterwarnings
+from sklearn.exceptions import ConvergenceWarning
+import time
+
+filterwarnings('ignore', category=ConvergenceWarning)
+
+def handle_file_upload(uploaded_file):
+    try:
+        if uploaded_file is None:
+            st.error('Lütfen bir veri seti yükleyin. Veri setinizi eğitim ve test için hazırladıysanız, bir sonraki adıma geçin.', icon="🚨")
+        else:
+            if uploaded_file.type == 'text/csv':  # CSV dosyası yüklenirse
+                df = pd.read_csv(uploaded_file)
+                st.success("CSV Data loaded successfully. Let's continue with Machine Learning!", icon="✅")
+            elif uploaded_file.type == 'text/yaml':  # YAML dosyası yüklenirse
+                    yaml_verisi = yaml.safe_load(uploaded_file)
+                    # YAML verisini DataFrame'e dönüştür
+                    df = pd.DataFrame(yaml_verisi)
+                    # CSV dosyasına kaydet
+                    df.to_csv("veri.csv", index=False)
+                    # CSV dosyasını tekrar yükle
+                    df = pd.read_csv("veri.csv")
+                    st.success("YAML Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
+            elif uploaded_file.type == 'application/json':  # JSON dosyası yüklenirse
+                    json_verisi = json.load(uploaded_file)
+                    # JSON verisini DataFrame'e dönüştür
+                    df = pd.DataFrame(json_verisi)
+                    # CSV dosyasına kaydet
+                    df.to_csv("veri.csv", index=False)
+                    # CSV dosyasını tekrar yükle
+                    df = pd.read_csv("veri.csv")
+                    st.success("JSON Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
+            elif uploaded_file.type in ['application/zip', 'application/x-zip-compressed']:  # Zip dosyası yüklenirse (resim klasörü)
+                    with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+                        zip_ref.extractall("extracted_images")
+                    st.success("ZIP/Image folder has been successfully uploaded and opened.Let's continue with Machine Learning!", icon="✅")
+            else:
+                st.write("The file format is not supported.")
+                
+            if df.empty:
+                    st.error('The loaded data set is empty.', icon="🚨")
+            
+            return df
+        
+    except (pd.errors.EmptyDataError, pd.errors.ParserError):
+        st.error("No columns to parse from file. Please check the file content.", icon="🚨")
+    except Exception as e:
+        st.error(f"Error reading the file: {e}", icon="🚨")   
+
+def find_best_params_classification(name, model, X, Y, test_size_range, random_state_range, max_depth_range):
+    best_score = float('-inf')
+    best_params = {}
+
+    for test_size, random_state, max_depth in product(test_size_range, random_state_range, max_depth_range):
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_size, random_state=random_state)
+
+        model_instance = model
+
+        if hasattr(model_instance, 'random_state'):
+            model_instance.set_params(random_state=random_state)
+        if hasattr(model_instance, 'max_depth'):
+            model_instance.set_params(max_depth=max_depth)
+
+        model_instance.fit(X_train, Y_train)
+        Y_pred = model_instance.predict(X_test)
+        score = accuracy_score(Y_test, Y_pred)
+
+        if score > best_score:
+            best_score = score
+            best_params = {'test_size': test_size, 'random_state': random_state, 'max_depth': max_depth}
+
+    return {'name': name, 'best_params': best_params, 'best_score': best_score}
+
+def find_best_params_regression(name, model, X, Y, test_size_range, random_state_range):
+    best_score = float('inf')
+    best_params = {}
+
+    for test_size, random_state in product(test_size_range, random_state_range):
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_size, random_state=random_state)
+
+        model_instance = model
+
+        if hasattr(model_instance, 'random_state'):
+            model_instance.set_params(random_state=random_state)
+
+        model_instance.fit(X_train, Y_train)
+        Y_pred = model_instance.predict(X_test)
+        score = mean_squared_error(Y_test, Y_pred)
+
+        if score < best_score:
+            best_score = score
+            best_params = {'test_size': test_size, 'random_state': random_state}
+
+    return {'name': name, 'best_params': best_params, 'best_score': best_score}
+
+def save_model(model, format_choice, filename):
+    if format_choice == 'joblib':
+        joblib.dump(model, filename)
+        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
+    elif format_choice == 'pickle':
+        with open(filename, 'wb') as f:
+            pickle.dump(model, f)
+        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
+    elif format_choice == 'onnx':
+        st.write("Bu model ONNX formatında kaydedilemez.")
+    else:
+        st.write("Geçersiz format seçimi! Lütfen 'joblib', 'pickle', 'h5', 'onnx', 'json' veya 'yaml' şeklinde bir format seçin.")
+
+def data_preprocessing(df):
+    try:
+        # Yinelenen satırları kaldırma
+        df.drop_duplicates(inplace=True)
+        # Label Encoding işlemi burada gerçekleşecek
+        label_encoder = LabelEncoder()
+        string_columns = df.select_dtypes(include=['object']).columns
+        df[string_columns] = df[string_columns].apply(label_encoder.fit_transform)
+        # Integer değerlere ortalama ile eksik değerleri doldurma
+        integer_columns = df.select_dtypes(include=['int', 'float']).columns
+        df[integer_columns] = df[integer_columns].fillna(df[integer_columns].mean())
+        # String değerlere "Bilinmiyor" ile eksik değerleri doldurma
+        string_columns = df.select_dtypes(include=['object']).columns
+        df[string_columns] = df[string_columns].fillna("Bilinmiyor")
+        
+        return df, label_encoder
+    
+    except Exception as e:
+        st.write(f"Hata: {e}")
+        return None
+
+def predict_new_data(model, columns, label_encoder):
+    new_data = {}
+    for column in columns:
+        value = input(f"{column}: ")
+        new_data[column] = [value if not value.replace('.', '', 1).isdigit() else float(value)]
+
+    new_df = pd.DataFrame(new_data)
+
+    # Yeni verilerin dönüştürülmesi
+    string_columns = new_df.select_dtypes(include=['object']).columns
+    new_df[string_columns] = new_df[string_columns].apply(label_encoder.fit_transform)
+    new_df = new_df.reindex(columns=columns, fill_value=0)
+
+    prediction = model.predict(new_df)
+    st.write("Tahmin edilen hedef değişken:", prediction)
 
 #MAKİNE ÖĞRENMESİ
-def auto_ml(df, hedef, modeller):
+def automl(df):
     try:
-        # Kullanıcıya hedef değişkeni sor
-        hedef_degisken = hedef
-        # Hedef değişkeni varsa işlemleri gerçekleştir
-        if hedef_degisken in df.columns:
-            # Bağımsız değişkenleri ve hedef değişkeni ayırma
-            X = df.drop(hedef_degisken, axis=1)  # Bağımsız değişkenler
-            Y = df[hedef_degisken]  # Hedef değişken
-
-        else:
-            st.warning('Hedef değişken adı geçersiz. Lütfen mevcut bir hedef değişken adı girin.', icon="⚠️")
-            return
-
-        st.success('Makine öğrenmesi adımı seçildi!', icon="✅")
-
-        secilen_modeller = modeller
-
-        # Seçilen modeller için en iyi test boyutu ve rastgele durumunun bulunması
-        best_models = []
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for name in secilen_modeller:
-                futures.append(executor.submit(find_best_test_size_and_random_state, name, X, Y))
-
-            for future in as_completed(futures):
-                best_model = future.result()
-                best_models.append(best_model)
-
-        # Modelleri doğruluk skoruna göre sıralama
-        best_models.sort(key=lambda x: x['best_score'], reverse=True)
-
-        # Sıralanmış modelleri yazdırma
-        st.write("\nSıralanmış Modeller:")
-        for idx, model in enumerate(best_models):
-            print(f"{idx + 1}. {model['name']} - En İyi Parametreler: {model['best_params']}, Doğruluk: {model['best_score']} (Test Size: {model['test_size']}, Random State: {model['random_state']})")
-
-        # Modeller için sonuçları yazdırma
-        for model_info in best_models:
-            model_name = model_info['name']
-            best_params = model_info['best_params']
-            test_size = model_info['test_size']
-            random_state = model_info['random_state']
-
-            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_size, random_state=random_state)
-            model = get_model_instance(model_name, best_params)
-            model.fit(X_train, Y_train)
-            Y_pred = model.predict(X_test)
-
-            # Sonuçları hesapla
-            accuracy = accuracy_score(Y_test, Y_pred)
-            precision = precision_score(Y_test, Y_pred, average='weighted')
-            recall = recall_score(Y_test, Y_pred, average='weighted')
-            f1 = f1_score(Y_test, Y_pred, average='weighted')
-            roc_auc = roc_auc_score(Y_test, model.predict_proba(X_test)[:, 1])
-            conf_matrix = confusion_matrix(Y_test, Y_pred)
-            mse = mean_squared_error(Y_test, Y_pred)
-
-            # Sonuçları yazdırma
-            st.write(f"\n{model_name} Modeli İçin Sonuçlar (Test Size: {test_size}, Random State: {random_state}):")
-            st.write("En İyi Parametreler:", best_params)
-            st.write("Doğruluk:", accuracy)
-            st.write("Hassasiyet:", precision)
-            st.write("Geri Çağırma:", recall)
-            st.write("F1 Skoru:", f1)
-            st.write("ROC-AUC Skoru:", roc_auc)
-            st.write("Karmaşıklık Matrisi:\n", conf_matrix)
-            st.write("Ortalama Kare Hata (MSE):", mse)
-
-    except Exception as e:
-        #print("Bir hata oluştu:", e)
-        st.warning(f'Bir hata oluştu:"{e}', icon="⚠️")
-
-
-
-def find_best_test_size_and_random_state(name, X, Y):
-    best_accuracy = 0.0
-    best_test_size = 0.0
-    best_random_state = 0
-
-    for test_size in [0.1, 0.2, 0.3, 0.4, 0.5]:
-        for random_state in range(101):
-            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_size, random_state=random_state)
-
-            model = get_model_instance(name)
-            param_grid = get_parameter_grid(name)
-
-            grid_search = GridSearchCV(model, param_grid=param_grid, cv=5, scoring='accuracy')
-            grid_search.fit(X_train, Y_train)
-
-            if grid_search.best_score_ > best_accuracy:
-                best_accuracy = grid_search.best_score_
-                best_test_size = test_size
-                best_random_state = random_state
-
-    return {'name': name, 'best_params': grid_search.best_params_, 'best_score': best_accuracy, 'test_size': best_test_size, 'random_state': best_random_state}
-
-def get_model_instance(name, params=None):
-    models = {
-        "LR": LogisticRegression,
-        "LDA": LinearDiscriminantAnalysis,
-        "KNN": KNeighborsClassifier,
-        "DT": DecisionTreeClassifier,
-        "NB": GaussianNB,
-        "SVM": SVC,
-        "RF": RandomForestClassifier,
-        "GB": GradientBoostingClassifier,
-        "XGB": XGBClassifier,
-        "LGBM": LGBMClassifier,
-        "CatBoost": CatBoostClassifier,
-        "MLP": MLPClassifier,
-        "AdaBoost": AdaBoostClassifier,
-        "Bagging": BaggingClassifier,
-        "ExtraTrees": ExtraTreesClassifier,
-        "GaussianProcess": GaussianProcessClassifier,
-        "Ridge": Ridge,
-        "Lasso": Lasso,
-        "ElasticNet": ElasticNet
-    }
-    if params:
-        return models[name](**params)
-    else:
-        return models[name]()
-
-def get_parameter_grid(name):
-    param_grids = {
-        "LR": {'penalty': ['l2'], 'C': [0.001, 0.01, 0.1, 1, 10, 100]},
-        "LDA": {'solver': ['svd', 'lsqr', 'eigen']},
-        "KNN": {'n_neighbors': [3, 5, 7, 9, 11], 'weights': ['uniform', 'distance', 'callable']},
-        "DT": {'max_depth': [3, 5, 7, 9, 11], 'criterion': ['gini', 'entropy', 'mse', 'mae']},
-        "NB": {},
-        "SVM": {'C': [0.001, 0.01, 0.1, 1, 10, 100], 'kernel': ['linear', 'rbf', 'poly', 'sigmoid', 'laplacian', 'tanh']},
-        "RF": {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7, 9, 11]},
-        "GB": {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5]},
-        "XGB": {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5]},
-        "LGBM": {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5]},
-        "CatBoost": {'iterations': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5]},
-        "MLP": {'hidden_layer_sizes': [(50,), (100,), (50, 50), (100, 100)], 'activation': ['relu', 'tanh', 'sigmoid', 'softmax', 'leaky_relu', 'prelu', 'elu', 'swish', 'mish']},
-        "AdaBoost": {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 0.5]},
-        "Bagging": {'n_estimators': [50, 100, 200]},
-        "ExtraTrees": {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7, 9, 11]},
-        "GaussianProcess": {},
-        "Ridge": {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]},
-        "Lasso": {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]},
-        "ElasticNet": {'alpha': [0.001, 0.01, 0.1, 1, 10, 100], 'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]}
-    }
-    return param_grids[name]
-
-
-# Fonksiyonu çağır
-#auto_ml(loaded_data)
-def myself(df):
         if df is None:
-            st.error('Please upload a dataset. If your dataset prepare for train and testing, go to next  step.', icon="🚨")
+            st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
+            return      
+        with st.container(border=True):
+            st.info("İşleminiz bir süre devam edecek. Haydi başlayalım!", icon='🎉')
+            df = data_preprocessing(df)
 
-        else:
-                df = pd.read_csv(uploaded_file)
-                column_names = df.columns.tolist()
-                hedef_degisken = st.selectbox("Hedef Değişkeni Seçin", column_names)
+            # Model seçenekleri ve kısaltmaları
+            classification_models = [
+                ("LR", LogisticRegression()),
+                ("LDA", LinearDiscriminantAnalysis()),
+                ("KNN", KNeighborsClassifier()),
+                ("DT", DecisionTreeClassifier()),
+                ("NB", GaussianNB()),
+                ("SVM", SVC()),
+                ("RF", RandomForestClassifier()),
+                ("GB", GradientBoostingClassifier()),
+                ("XGB", XGBClassifier()),
+                ("LGBM", LGBMClassifier()),
+                ("CatBoost", CatBoostClassifier()),
+                ("MLP", MLPClassifier()),
+                ("AdaBoost", AdaBoostClassifier()),
+                ("Bagging", BaggingClassifier()),
+                ("ExtraTrees", ExtraTreesClassifier()),
+                ("GaussianProcess", GaussianProcessClassifier())
+            ]
+            regression_models = [
+                ("LinearRegression", LinearRegression()),
+                ("Ridge", Ridge()),
+                ("Lasso", Lasso()),
+                ("ElasticNet", ElasticNet())
+            ]
 
-                # Define the list of models
-                # Tüm modellerin listesi
-                all_models = ["LR", "LDA", "KNN", "DT", "NB", "SVM", "RF", "GB", "XGB", "LGBM", "CatBoost", "MLP", "AdaBoost", "Bagging", "ExtraTrees", "GaussianProcess", "Ridge", "Lasso", "ElasticNet"]
-
-                # Seçilen modellerin listesi
-                selected_models = st.multiselect("Modelleri Seçin (Maksimum 5)", all_models, default=[])
-
-                # Seçilen modellerin sayısı kontrol edilir
-                if len(selected_models) > 5:
-                        st.warning("Maksimum 5 model seçebilirsiniz!")
-                        selected_models = selected_models[:5]  # Maksimum 5 modeli alır
-
-                        # Seçilen modelleri göster
-                        st.write("Seçilen Modeller:", selected_models)
-
-                baslat_btn = st.button("Makine Öğrenmesini bu modeller üzerinden başlat.")
-                if baslat_btn:
-                       st.write("Makine öğrenmesi başlatıldı.")
-                       auto_ml(df, hedef_degisken, selected_models)
-              
-
-#FRONTEND
-if selected == "INPUT":
-        # FRONTEND
-        st.subheader("Machine Learning")
-        st.write("Automates data cleaning Bir şirket, karar vermeBir şirket, kararBir şirket, karar vermeBir şirket, karar such as filling in missing data and deleting unnecessary columns. It also allows the user to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. Model Selection and Training: By presenting multiple machine learning models to the user, it evaluates the performance of each with different parameters and gives the user the chance to choose the best performing model.")
-        with st.expander("🔗 Machine Learning"):
-                st.write("Bir şirket, karar vermeBir şirket, karar verme sürecini şekillendirmek içinBir şirket, karar verme sürecini şekillendirmek içinBir şirket, karar verme sürecini şekillendirmek içinBir şirket, karar verme sürecini şekillendirmek için sürecini şekillendirmek için verileri kullanırken alakalı, eksiksiz ve doğru verileri kullanmaları çok önemlidir. Bununla birlikte, veri kümeleri genellikle analizden önce ortadan kaldırılması gereken hatalar içerir. Bu hatalar, tahminleri önemli ölçüde etkileyebilecek yanlış yazılmış tarihler, parasal değerler ve diğer ölçüm birimleri gibi biçimlendirme hatalarını içerebilir. Aykırı değerler, sonuçları her durumda çarpıttığından önemli bir endişe kaynağıdır. Yaygın olarak bulunan diğer veri hataları; bozuk veri noktalarını, eksik bilgileri ve yazım hatalarını içerir. Temiz veriler, ML modellerinin yüksek oranda doğru olmasına yardımcı olabilir. Düşük kaliteli eğitim veri kümelerini kullanmak, dağıtılan modellerde hatalı tahminlere neden olabileceğinden temiz ve doğru veriler, makine öğrenimi modellerini eğitmek için özellikle önemlidir. Veri bilimcilerinin, zamanlarının büyük bir kısmını makine öğrenimi için veri hazırlamaya ayırmalarının başlıca nedeni budur.")
-                st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
+            # Hedef değişkeni seçimi ve problem türü seçimi
+            problem_type = st.selectbox("Problemin türünü seçin:", options=['Sınıflandırma', 'Regresyon'])
+            hedef_degisken = st.selectbox("Hedef Değişkeni Seçin", df.columns.tolist())
+            if hedef_degisken in df.columns:
+                X = df.drop(hedef_degisken, axis=1)  # Bağımsız değişkenler
+                Y = df[hedef_degisken]  # Hedef değişken
+            else:
+                st.write("Hedef değişken adı geçersiz. Lütfen mevcut bir hedef değişken adı girin.")
+                return
         
-        # Dosya yükleme işlemi için Streamlit'in file_uploader fonksiyonunu kullanma
-        uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "jpg", "png"])
+            if problem_type == "Sınıflandırma":
+                all_models = [name for name, _ in classification_models]
+                first_model = st.selectbox("1. modeli seçin:", all_models, default=[])
+                second_model = st.selectbox("2. modeli seçin:", all_models, default=[])
+                selected_models = selected_models.append(first_model, second_model)
+            else:
+                selected_models = ['LinearRegression', 'Ridge', 'Lasso', 'ElasticNet']
 
-        tab1, tab2= st.tabs(["INPUTS", "EXAMPLE"])
-        with tab1:
-                        with st.container(border=True):
-                                bitirme = st.radio(
-                                        "Set label visibility 👇",
-                                        ["I'll do it myself.", "Do it."],
-                                        key="visibility",
-                                        )
-                                
-                                if bitirme == "I'll do it myself.":
-                                      #myself(uploaded_file)
-                                      st.write("Fonksiyon güncellenecek.")
-                                      pass
-                                else:
-                                      myself(uploaded_file)
-                                
-                                
-        #Örnek Kod Uygulaması                  
-        with tab2:
-                        with open("media/texts/randomForest.txt", "r") as file:
-                                code = file.read()
-                        st.code(code, language='python')
-                        
+            ml_start = st.button("Makine Öğrenmesini Başlat.")
+            if ml_start:
+                st.info("Makine öğrenmesi başlatıldı. Lütfen sonuçları bekleyiniz.", icon='🤖')
 
-                        
-else: 
-        st.write("dsdsd")
+                if problem_type == 'Sınıflandırma':
+                    st.info("Sınıflandırma yapılıyor.", icon="ℹ️")
+                    models = [model for name, model in classification_models if name in selected_models]
+                    find_best_params = find_best_params_classification
+                    st.info("Sınıflandırma best parametreleri bulundu.", icon="ℹ️")
+                    
+                    test_size_range = [0.1, 0.2, 0.3, 0.4]
+                    random_state_range = [42, 2021, 12345]
+                    max_depth_range = [3, 5, 7, 9]
+                
+                elif problem_type == 'Regresyon':
+                    st.info("Regresyon yapılıyor.", icon="ℹ️")
+                    models = [model for name, model in regression_models if name in selected_models]
+                    find_best_params = find_best_params_regression
+                    st.info("Regresyon best parametreleri bulundu. Bekleyiniz.", icon="ℹ️")
+                    
+                    test_size_range = [0.1, 0.2, 0.3, 0.4]
+                    random_state_range = [42, 2021, 12345]
+                    max_depth_range = []
+                
+                futures = []
+                if problem_type == 'Sınıflandırma':
+                    with ProcessPoolExecutor() as executor:
+                        for name, alg in classification_models:
+                            if name in selected_models:
+                                futures.append(
+                                    executor.submit(find_best_params, name, alg, X, Y, test_size_range, random_state_range, max_depth_range))
+                elif problem_type == 'Regresyon':
+                    with ProcessPoolExecutor() as executor:
+                        for name, alg in regression_models:
+                            if name in selected_models:
+                                futures.append(
+                                    executor.submit(find_best_params, name, alg, X, Y, test_size_range, random_state_range))
+                
+                results = []
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+
+                df_models = pd.DataFrame({
+                    "Models": selected_models,
+                    })
+                
+                # Sonuçları DataFrame'e dönüştürme
+                df_results = pd.DataFrame(results)
+
+                #    Streamlit arayüzünde tabloyu gösterme
+                st.write("Seçilen Modeller")
+                st.write(df_models)
+                st.write("Sonuçlar")
+                st.write(df_results)
+       
+    except Exception as e:
+        st.write(f"Hata: {e}")
+
+def manualml(df):
+    if df is None:
+        st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
+        return
+    
+    st.info("İşleminiz bir süre devam edecek. Haydi başlayalım!", icon='🎉')
+    df, Label_Encoder= data_preprocessing(df)  # data_preprocessing fonksiyonu tanımlanmalı veya bu satır kaldırılmalı
+
+    # Kullanılabilir modeller ve bunların adları
+    models = [
+        ("LR", LogisticRegression),
+        ("LIR", LinearRegression),
+        ("LDA", LinearDiscriminantAnalysis),
+        ("KNN", KNeighborsClassifier),
+        ("DT", DecisionTreeClassifier),
+        ("NB", GaussianNB),
+        ("SVM", SVC),
+        ("RF", RandomForestClassifier),
+        ("GB", GradientBoostingClassifier),
+        ("XGB", XGBClassifier),
+        ("LGBM", LGBMClassifier),
+        ("CatBoost", CatBoostClassifier),
+        ("MLP", MLPClassifier),
+        ("AdaBoost", AdaBoostClassifier),
+        ("Bagging", BaggingClassifier),
+        ("ExtraTrees", ExtraTreesClassifier),
+        ("GaussianProcess", GaussianProcessClassifier),
+        ("Ridge Regression", Ridge),
+        ("Lasso Regression", Lasso),
+        ("ElasticNet Regresyon", ElasticNet)
+    ]
+
+    # X ve y ayrıştırma
+    target_variable = st.selectbox("Hedef değişkeni seçin:", df.columns)
+    X = df.drop(columns=[target_variable])
+    y = df[target_variable]
+
+    # Kullanıcıdan test_size ve random_state değerlerini al
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        test_size = st.number_input("Test setinin oranını girin (örn: 0.2):", min_value=0.1, max_value=0.9, step=0.1, value=0.2)
+    with col2:
+        random_state = st.number_input("Random state değerini girin (örn: 42):", min_value=0, step=1, value=42)
+    with col3:
+        # Kullanıcıdan model seçmesini iste
+        all_models = [name for name, _ in models]
+        selected_model_name = st.selectbox("Modelleri Seçin (Maksimum 2)", all_models)
+        selected_model_class = [model for name, model in models if name in selected_model_name]
+
+    if len(selected_model_class) == 0:
+        st.error("Lütfen en az bir model seçin.", icon="🚨")
+        return
+
+    selected_model_class = selected_model_class[0]
+
+    # Seçilen modelin parametrelerini kullanıcıya göster
+    params = {}
+    st.write(f"Seçilen model: {selected_model_name[0]}")
+    st.write("Bu modelin alabileceği parametreler:")
+    
+    prm_names= []
+    prm_def= []
+    signature = inspect.signature(selected_model_class)
+    for param in signature.parameters.values():
+        if param.name != 'self':
+            prm_names.append(str({param.name}))
+            prm_def.append(str({param.default}))
+
+    data = pd.DataFrame({
+                "Parameters": [i for i in prm_names],
+                "Default Value": [i for i in prm_def]
+        })
+    
+    st.dataframe(data)
+    # Kullanıcıdan parametreleri al
+    while True:
+        param = st.multiselect("Parametreleri seçin:", prm_names)
+        value = st.number_input(f"{param} değeri:")
+        params[param] = float(value) if value.replace('.', '', 1).isdigit() else value
+        if st.button("parametreleri al"):
+            break
+    
+    # Modeli parametrelerle oluştur
+    model = selected_model_class(**params)
+
+    # Veriyi eğitim ve test setine ayır
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+    # Modeli eğit ve test et
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    # Modelin parametrelerini yazdırma
+    st.write("Model Parametreleri:", model.get_params())
+    # Sonuçları değerlendir
+    if selected_model_name[0] in ["LIR", "Ridge Regression", "Lasso Regression", "ElasticNet Regresyon"]:
+        # Regresyon modelleri için
+        mse = mean_squared_error(y_test, y_pred)
+        st.write("Mean Squared Error:", mse)
+    else:
+        # Sınıflandırma modelleri için
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average='weighted')
+        recall = recall_score(y_test, y_pred, average='weighted')
+        f1 = f1_score(y_test, y_pred, average='weighted')
+        try:
+            roc_auc = roc_auc_score(y_test, y_pred)
+        except ValueError:
+            roc_auc = "ROC-AUC skoru hesaplanamadı. (Muhtemelen hedef değişken birden fazla sınıfa sahip.)"
+        conf_matrix = confusion_matrix(y_test, y_pred)
+
+        # Sonuçları yazdırma
+        st.write("Accuracy:", accuracy)
+        st.write("Precision:", precision)
+        st.write("Recall:", recall)
+        st.write("F1 Score:", f1)
+        st.write("ROC-AUC Score:", roc_auc)
+        st.write("Confusion Matrix:\n", conf_matrix)
+
+    # Modeli kaydetme
+    save_choice = st.selectbox("Modeli kaydetmek ister misiniz?:", ["Evet", "Hayır"])
+    if save_choice== "Evet":
+        format_choice = st.selectbox("Lütfen kaydetmek istediğiniz dosya formatını seçin:", ["joblib", "pickle", "onnx"])
+        if format_choice == "joblib":
+            st.download_button("Download some text", joblib.dump(model, "model_ATOMai"))
+        elif format_choice == "pickle":
+            with open("model_ATOMai", 'wb') as f:
+                st.download_button("Download some text", pickle.dump(model, f))
+        elif format_choice == "onnx":
+            text_contents = "text dosyasıdır"
+            st.download_button("Download some text", text_contents)
+            
+        #filename = input("Kaydetmek istediğiniz dosyanın adını girin (örn: model.pkl, model.h5, model.onnx, model.json, model.yaml): ")
+        #save_model(model, format_choice, filename)
+    else:
+        st.write("Makine Öğrenmesi sonlanmıştır.")
+
+    # Yeni veri ile tahmin yapma
+    predict_new_data(model, X.columns, Label_Encoder)
+    
+
+# FRONTEND
+def frontend():
+    st.subheader("Machine Learning")
+    st.write("Automates data cleaning and allows the user to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. Model Selection and Training: By presenting multiple machine learning models to the user, it evaluates the performance of each with different parameters and gives the user the chance to choose the best performing model.")
+    with st.expander("🔗 Machine Learning"):
+        st.write("Veri işleme ve model seçimi işlemlerini otomatikleştirmek için bu aracı kullanabilirsiniz.")
+        st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
+   
+    # Dosya yükleme işlemi için Streamlit'in file_uploader fonksiyonunu kullanma
+    uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])
+
+    ml_option = st.selectbox("Do you want to do your training yourself or should it be done automatically?", ["Choose", "I'll do it myself.", "Do it."])
+
+    if uploaded_file is None:
+        st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
+    elif ml_option == "I'll do it myself.":
+        df = handle_file_upload(uploaded_file)
+        manualml(df)
+    elif ml_option == "Do it.":
+        df = handle_file_upload(uploaded_file)
+        automl(df)
+    else:
+        st.write("Please made an valid selection.")
+
+if __name__ == "__main__":
+    # Page configuration
+    st.set_page_config(page_title="ATOM AI", layout="wide",)
+    # Yakınsama uyarılarını bastırmak için ayarları yapılandırma
+    filterwarnings("ignore", category=ConvergenceWarning)
+
+    #Frontend ile arayüzün oluşturulması.
+    frontend()
