@@ -17,7 +17,7 @@ def frontend():
     # Başlık ve giriş
     st.title("*Welcome to* Atom AI")
     st.write(
-        "As Atom AI family, we are proud to introduce you our new project. In this project, we enable you to use artificial intelligence in an easy way by performing data set cleaning, automatic machine learning and deep learning operations.")
+        "As Atom AI family, we are proud to introduce you our new project. In this project, we enable you to use artificial intelligence in an easy way by performing automatic data set cleaning-analysis, automatic machine learning and deep learning operations.")
 
     #Kullanılan animasyonların tanımlanması
     lottie_coding = load_lottiefile("media/lottieFiles/visionMission.json")  # replace link to local lottie file
@@ -37,17 +37,21 @@ def frontend():
                 width=None, key=None, height=250)
         with text:
             st.subheader("Our Vision")
-            st.caption("Its vision is to enable users who do not have a basic knowledge of data science, machine learning and deep learning to gain the ability to perform effective analysis on their own data sets, automate data cleaning and pre-processing steps, evaluate different machine learning models and select the most appropriate model, and make real-time predictions.")
+            st.write("Its vision is to enable users without basic knowledge in data science, machine learning and deep learning to perform effective analysis on their own data sets, automate data cleaning and pre-processing steps, evaluate different machine learning and deep learning models, select the most appropriate model and make real-time predictions.")
             st.subheader("Our Mission")
-            st.caption("Focusing on the needs of individuals who do not have basic knowledge in the fields of data science, deep learning and machine learning, we aim to provide an interactive learning and application platform that will enable them to improve their skills in these areas.")
+            st.write("Mission is to provide an interactive automated artificial intelligence platform by focusing on the problems and needs in the fields of data science and artificial intelligence.")
     with about2:
         st.subheader("Why AutoML?")
-        st.caption("The automated machine learning (AutoML) approach leverages more than 19 different models, which gives our project flexibility and wide applicability. Written in Python, this project is situated in a popular and emerging field that meets the requirements in data science, deep learning and machine learning. AutoML automates the training, tuning and deployment of machine learning models, allowing users to select and use the most appropriate model. This reduces the complexity of data science and artificial intelligence applications, reaching a wider audience of users. Data science and machine learning are increasingly in demand among professionals across different industries, enabling individuals with these skills to gain a competitive advantage in the business world. Traditional machine learning processes are often complex and time-consuming. Steps such as code writing, model selection, hyperparameter optimization and data preprocessing require technical knowledge and experience. However, AutoML automates these processes, enabling users to achieve faster and more effective results.")
+        st.write("The automated machine learning (AutoML) approach leverages more than 20 different models, which gives our project flexibility and wide applicability. Written in Python, this project is situated in a popular and emerging field that meets the requirements in data science, deep learning and machine learning. AutoML automates the training, tuning and deployment of machine learning models, allowing users to select and use the most appropriate model. This reduces the complexity of data science and artificial intelligence applications, reaching a wider audience of users. Data science and machine learning are increasingly in demand among professionals across different industries, enabling individuals with these skills to gain a competitive advantage in the business world. Traditional machine learning processes are often complex and time-consuming. Steps such as code writing, model selection, hyperparameter optimization and data preprocessing require technical knowledge and experience. However, AutoML automates these processes, enabling users to achieve faster and more effective results.")
     with about3:
         text, animation = st.columns([0.7, 0.3])
         with text:
             st.subheader("What Are We Doing?")
-            st.caption("The automatic c machine learning (Auto ML) approach over 19 different omatic machine learning (Auto ML) approach over 19 different omatic machine learning (Auto ML) approach over 19 different pproach over 19 different models to be used in the project increases the flexibility and wide applicability of the project. This project, which will be written in Python, is part of an emerging popular area to meet the requirements in data science, deep learning and machine learning. With 19 different models, it provides users with the ability to choose any model they want and find most of the models they are looking for, as well as machine learning that automates the training, tuning and deployment of machine learning models.")
+            st.write("Makine öğrenmesi derin öğrenmenin daha sabit ve kolay halidir. Autom AI makine öğrenmesi için yalnızca CSV ve Json veri setlerini desteklemektedir. Derin öğrenme makine öğrenmesine göre daha özelleştirilebilir. Autom AI derin öğrenme için yalnızca İmage veri tipini desteklemektedir. Autom AI sayfaları hakkında bilgi: ")
+            st.write("Home(Bu sayfa): Web sitesine girildiğinde ilk karşılaşılan sayfadır. Home sayfası uygulama hakkında vizyon ve misyon bilgilerin, ne yapıldığı gibi uygulamayı tanıtacak bilgi ve yönlendirmelere sahip olan sayfadır.")
+            st.write("Datasets: Bu sayfada kullanıcının yüklediği veri setleri gözükecektir. Veri düzenleme, label encoding, one hot encoding, standartlaştırma ve normalizasyon işlemleri bu sayfada gerçekleşir.")
+            st.write("Machine Learning: Burada yüklenilen veri setleri üzerinden seçilen model ile ilgili eğitim yapılabilecektir.  İsterlerse eğitilen modeli istedikleri formatta indirebilirler ve örnek veri girerek hedefi tahmin edebilirler.")
+            st.write("Deep Learning: Burada yüklenilen veri seti üzerinden, seçilen özellikler ile derin öğrenme modeli eğitebilirler. İsterlerse eğitilen modeli istedikleri formatta indirebilirler ve örnek veri girerek hedefi tahmin edebilirler.")
         with animation: 
             st_lottie(lottie_comp, speed=1,
                 reverse=False, loop=True,
@@ -55,9 +59,9 @@ def frontend():
                 width=None, key=None, height=200)
     with about4:
         st.subheader("What Are We Aiming For?")
-        st.caption("• Data Cleaning and Preprocessing**: The project automates data cleaning steps such as filling in missing data, deleting unnecessary columns. It also allows users to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. ")
-        st.caption("• Model Selection and Training**: By presenting multiple machine learning models to users, it evaluates the performance of each with different parameters and gives them the chance to choose the best performing model.")
-        st.caption("• Prediction Capability**: It allows users to make real-time forecasts for the data set at hand. The user can make predictions with the selected model based on the data entered manually.")
+        st.write("• Data Cleaning and Preprocessing**: The project automates data cleaning steps such as filling in missing data, deleting unnecessary columns. It also allows users to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. ")
+        st.write("• Model Selection and Training**: By presenting multiple machine learning models to users, it evaluates the performance of each with different parameters and gives them the chance to choose the best performing model.")
+        st.write("• Prediction Capability**: It allows users to make real-time forecasts for the data set at hand. The user can make predictions with the selected model based on the data entered manually.")
 
     # Bilgilendirici İstatistklerin verilmesi
     with st.container():
@@ -164,7 +168,6 @@ def frontend():
         with col2:
                 st.image("media/images/devolopers.png", width=300 )
 
-    st.info('If you want to read our graduation thesis, you can access it from this [**link.**](https://www.youtube.com/watch?v=u1hSnYlEjn4)', icon="ℹ️")
     st.image("media/images/footer.png",use_column_width=True)
 
 if __name__ == "__main__":

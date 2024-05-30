@@ -10,8 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 from keras.models import Sequential
 from keras.layers import GlobalAveragePooling2D, Dense, Conv2D, MaxPooling2D, Flatten, Dropout, BatchNormalization
-from keras.applications import MobileNetV2, EfficientNetB0, InceptionV3, ResNet50, DenseNet121, VGG16, Xception, \
-    NASNetMobile
+from keras.applications import MobileNetV2, EfficientNetB0, InceptionV3, ResNet50, DenseNet121, VGG16, Xception, NASNetMobile
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import Adam, RMSprop, SGD, Adagrad, Adadelta, Adamax, Nadam, Ftrl
 from keras.callbacks import LearningRateScheduler
@@ -38,32 +37,33 @@ def handle_file_upload(uploaded_file):
                 df = pd.read_csv(uploaded_file)
                 st.success("CSV Data loaded successfully. Let's continue with Machine Learning!", icon="✅")
             elif uploaded_file.type == 'text/yaml':  # YAML dosyası yüklenirse
-                    yaml_verisi = yaml.safe_load(uploaded_file)
-                    # YAML verisini DataFrame'e dönüştür
-                    df = pd.DataFrame(yaml_verisi)
-                    # CSV dosyasına kaydet
-                    df.to_csv("veri.csv", index=False)
-                    # CSV dosyasını tekrar yükle
-                    df = pd.read_csv("veri.csv")
-                    st.success("YAML Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
+                yaml_verisi = yaml.safe_load(uploaded_file)
+                # YAML verisini DataFrame'e dönüştür
+                df = pd.DataFrame(yaml_verisi)
+                # CSV dosyasına kaydet
+                df.to_csv("veri.csv", index=False)
+                # CSV dosyasını tekrar yükle
+                df = pd.read_csv("veri.csv")
+                st.success("YAML Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
             elif uploaded_file.type == 'application/json':  # JSON dosyası yüklenirse
-                    json_verisi = json.load(uploaded_file)
-                    # JSON verisini DataFrame'e dönüştür
-                    df = pd.DataFrame(json_verisi)
-                    # CSV dosyasına kaydet
-                    df.to_csv("veri.csv", index=False)
-                    # CSV dosyasını tekrar yükle
-                    df = pd.read_csv("veri.csv")
-                    st.success("JSON Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
+                json_verisi = json.load(uploaded_file)
+                # JSON verisini DataFrame'e dönüştür
+                df = pd.DataFrame(json_verisi)
+                # CSV dosyasına kaydet
+                df.to_csv("veri.csv", index=False)
+                # CSV dosyasını tekrar yükle
+                df = pd.read_csv("veri.csv")
+                st.success("JSON Data loaded successfully.Let's continue with Machine Learning!", icon="✅")
             elif uploaded_file.type in ['application/zip', 'application/x-zip-compressed']:  # Zip dosyası yüklenirse (resim klasörü)
-                    with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
-                        zip_ref.extractall("extracted_images")
-                    st.success("ZIP/Image folder has been successfully uploaded and opened.Let's continue with Machine Learning!", icon="✅")
+                with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+                    zip_ref.extractall("extracted_images")
+                    return "extracted_images/train"
+                st.success("ZIP/Image folder has been successfully uploaded and opened.Let's continue with Machine Learning!", icon="✅")
             else:
                 st.write("The file format is not supported.")
                 
             if df.empty:
-                    st.error('The loaded data set is empty.', icon="🚨")
+                st.error('The loaded data set is empty.', icon="🚨")
             
             return df
     except (pd.errors.EmptyDataError, pd.errors.ParserError):
@@ -71,8 +71,7 @@ def handle_file_upload(uploaded_file):
     except Exception as e:
         st.error(f"Error reading the file: {e}", icon="🚨")
 
-def build_tabular_model(input_shape, num_classes, optimizer='adam', activation='relu', loss='categorical_crossentropy',
-                        metrics='accuracy'):
+def build_tabular_model(input_shape, num_classes, optimizer='adam', activation='relu', loss='categorical_crossentropy', metrics='accuracy'):
     model = Sequential()
     model.add(Dense(64, input_shape=(input_shape,), activation=activation))
     model.add(Dropout(0.5))
@@ -150,14 +149,13 @@ def tahmin_yap_tabular(model, data_type, num_classes, target_variable, df):
         feature_value = st.text_input(f"{feature_names} değerlerini girin: ")
         feature_value = feature_value.split()
         
-    
         # Her bir öğeyi uygun türde bir değere dönüştür
         for i in feature_value:
-                    features.append(float(i))
+            features.append(float(i))
 
         st.write(features)
 
-        if st.button("okey"):
+        if st.button("okey", key="unique_key_okey"):
             # Create a DataFrame for the input features to ensure proper preprocessing
             input_data = pd.DataFrame([features], columns=feature_names)
 
@@ -179,20 +177,20 @@ def deepLearning():
     data_type = st.selectbox("Veri tipi seçin:", ["Tabular", "Image"])
 
     if data_type == 'Tabular':
-        uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])
+        uploaded_file = st.file_uploader("Upload a file", type=["csv","json"])
         if uploaded_file is None:
             st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
         else:
-            df =  handle_file_upload(uploaded_file)
+            df = handle_file_upload(uploaded_file)
 
             target_variable = st.selectbox("Hedef değişkenin adını girin:", df.columns.to_list())
-            X, Y, num_classes= preprocess_tabular_data(df, target_variable.lower())
+            X, Y, num_classes = preprocess_tabular_data(df, target_variable.lower())
             X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
             input_shape = X_train.shape[1]
             # Parametreler
             manual_params = st.selectbox("Model parametrelerini manuel girmek ister misiniz?", ["Evet", "Hayır"])
             if manual_params == "Evet":
-                optimizers = {'adam': Adam, 'rmsprop': RMSprop, 'sgd': SGD, 'adagrad': Adagrad, 'adadelta': Adadelta, 'adamax': Adamax, 'nadam': Nadam,'ftrl': Ftrl}
+                optimizers = {'adam': Adam, 'rmsprop': RMSprop, 'sgd': SGD, 'adagrad': Adagrad, 'adadelta': Adadelta, 'adamax': Adamax, 'nadam': Nadam, 'ftrl': Ftrl}
                 activation_options = ['relu', 'sigmoid', 'tanh', 'softmax']
                 loss_options = ['categorical_crossentropy', 'binary_crossentropy', 'mean_squared_error']
                 metrics_options = ['accuracy', 'precision', 'recall', 'mean_absolute_error']
@@ -214,23 +212,32 @@ def deepLearning():
                 with col4:
                     metrics = st.selectbox("Kullanılacak metrics fonksiyonunu seçin", metrics_options)
                 
-                if st.button("Parametreler tamamlandı."):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    epoch = st.number_input("epochs oranını girin (örn: 0.2):", min_value=5.0, max_value=50.0, step=2.0, value=10.0)
+                with col2:
+                    validation = st.number_input("validation oranını girin (örn: 0.2):", min_value=0.2, max_value=1.0, step=0.1, value=0.2)
+                with col3:
+                    verb = st.number_input("verbose oranını girin (örn: 0.2):", min_value=0.0, max_value=5.0, step=1.0, value=0.0)
+
+                
+                if st.button("Parametreler tamamlandı.", key="unique_key_manual_params"):
                     model = build_tabular_model(X_train.shape[1], num_classes, optimizer=optimizer, activation=activation, loss=loss, metrics=metrics)
-                    model.fit(X_train, Y_train, epochs=10, batch_size=32, validation_split=0.2)
-                    score = model.evaluate(X_test, Y_test, verbose=0)
+                    model.fit(X_train, Y_train, epochs=epoch, batch_size=32, validation_split=validation)
+                    score = model.evaluate(X_test, Y_test, verbose=verb)
                     st.write(f"Doğruluk skoru: {score}")
 
-                if st.selectbox("Modeli kaydetmek ister misiniz?", ["Evet", "Hayır"]) == 'Evet':
-                        format_choice = st.selectbox("Kaydetme formatını seçin (joblib, pickle, h5):", ['joblib', 'pickle', 'h5'])
-                        filename = st.text_input("Modeli kaydetmek için dosya adını girin (örn: 'model.joblib'): ")
-                        #save_model(model, format_choice, filename)
+                #if st.selectbox("Modeli kaydetmek ister misiniz?", ["Evet", "Hayır"]) == 'Evet':
+                #    format_choice = st.selectbox("Kaydetme formatını seçin (joblib, pickle, h5):", ['joblib', 'pickle', 'h5'])
+                #    filename = st.text_input("Modeli kaydetmek için dosya adını girin (örn: 'model.joblib'): ")
+                #    save_model(model, format_choice, filename)
 
-                if st.selectbox("Tahmin yapmak ister misiniz?", ["Evet", "Hayır"]) == 'Evet':
-                         tahmin_yap_tabular(model, data_type, num_classes, target_variable, df)
+                #if st.selectbox("Tahmin yapmak ister misiniz?", ["Evet", "Hayır"]) == 'Evet':
+                #    tahmin_yap_tabular(model, data_type, num_classes, target_variable, df)
             
 
             else:
-                if st.button("Parametreler tamamlandı."):
+                if st.button("Parametreler tamamlandı.", key="unique_key_auto_params"):
                     param_grid = {
                         'input_shape': [X_train.shape[1]],
                         'num_classes': [num_classes],
@@ -240,9 +247,9 @@ def deepLearning():
                         'metrics': ['accuracy']
                     }
 
-                    best_params, best_score = grid_search_for_best_params(build_tabular_model, X_train, Y_train, X_test, Y_test,
-                                                                        param_grid)
-                    if st.button("Parametreler tamamlandı."):
+                    best_params, best_score = grid_search_for_best_params(build_tabular_model, X_train, Y_train, X_test, Y_test, param_grid)
+                    
+                    if st.button("Parametreler tamamlandı.", key="unique_key_best_params"):
                         model = build_tabular_model(**best_params)
                         model.fit(X_train, Y_train, epochs=10, batch_size=32, validation_split=0.2)
                         st.write(f"En iyi parametreler: {best_params}")
@@ -255,20 +262,23 @@ def deepLearning():
 
                     if st.selectbox("Tahmin yapmak ister misiniz?", ["Evet", "Hayır"]) == 'Evet':
                          tahmin_yap_tabular(model, data_type, num_classes, target_variable, df)
-
-            
-
-            
-    
+           
     elif data_type == 'Image':
-        uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])
+        uploaded_file = st.file_uploader("Upload a file", type=["zip"])
         if uploaded_file is None:
             st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
         else:
-            df =  handle_file_upload(uploaded_file)
+            handle_file_upload(uploaded_file)
+            data_dir = 'extracted_images'
+
+            # Klasördeki tüm dosyaları listeleme
+            for dosya_adi in os.listdir(data_dir):
+                    dosya_yolu = os.path.join(data_dir, dosya_adi)
+                    print(dosya_yolu)
+
 
             # Dosya sayısını bularak num_classes belirleme
-            train_dir = os.path.join(df, 'train')
+            train_dir = os.path.join(data_dir, 'train')
             num_classes = len(os.listdir(train_dir))
             st.write(f"Belirlenen sınıf sayısı: {num_classes}")
 

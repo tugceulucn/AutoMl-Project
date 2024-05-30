@@ -1,5 +1,5 @@
 import zipfile
-import json
+import json, time
 import inspect
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from itertools import product
@@ -163,19 +163,33 @@ def data_preprocessing(df):
 
 def predict_new_data(model, columns, label_encoder):
     new_data = {}
-    for column in columns:
-        value = input(f"{column}: ")
-        new_data[column] = [value if not value.replace('.', '', 1).isdigit() else float(value)]
+    i = 0
+    
+    while i < len(columns):
+        column = columns[i]
+        value = st.text_input(f"{column}: ", key=f"input_{i}")
+        if st.button("Sıradaki", key=f"button_{i}"):
+            if value == "":
+                st.error(f"Lütfen {column} için bir değer girin.")
+            else:
+                new_data[column] = [value if not value.replace('.', '', 1).isdigit() else float(value)]
+                i += 1
 
-    new_df = pd.DataFrame(new_data)
+    if len(new_data) == len(columns):
+        new_df = pd.DataFrame(new_data)
+        
+        # Yeni verilerin dönüştürülmesi
+        string_columns = new_df.select_dtypes(include=['object']).columns
+        new_df[string_columns] = new_df[string_columns].apply(label_encoder.fit_transform)
+        new_df = new_df.reindex(columns=columns, fill_value=0)
 
-    # Yeni verilerin dönüştürülmesi
-    string_columns = new_df.select_dtypes(include=['object']).columns
-    new_df[string_columns] = new_df[string_columns].apply(label_encoder.fit_transform)
-    new_df = new_df.reindex(columns=columns, fill_value=0)
-
-    prediction = model.predict(new_df)
-    st.write("Tahmin edilen hedef değişken:", prediction)
+        if not new_df.empty:
+            prediction = model.predict(new_df)
+            st.write("Tahmin edilen hedef değişken:", prediction)
+        else:
+            st.error("Yeterli veri girişi yapılmadı.")
+    else:
+        st.info("Tüm alanları doldurduğunuzdan emin olun.")
 
 #MAKİNE ÖĞRENMESİ
 def automl(df):
@@ -216,7 +230,7 @@ def automl(df):
             # Hedef değişkeni seçimi ve problem türü seçimi
             problem_type = st.selectbox("Problemin türünü seçin:", options=['Sınıflandırma', 'Regresyon'])
             hedef_degisken = st.selectbox("Hedef Değişkeni Seçin", df.columns.tolist())
-            st.write(problem_type)
+            #st.write(problem_type)
 
             if hedef_degisken in df.columns:
                 X = df.drop(hedef_degisken, axis=1)  # Bağımsız değişkenler
@@ -336,138 +350,112 @@ def manualml(df):
     with col1:
         test_size = st.number_input("Test setinin oranını girin (örn: 0.2):", min_value=0.1, max_value=0.9, step=0.1, value=0.2)
     with col2:
-        random_state = st.number_input("Random state değerini girin (örn: 42):", min_value=0, step=1, value=42)
+        random_state = st.number_input("Random state değerini girin (örn: 42):", min_value=30, step=2, value=30)
     with col3:
         # Kullanıcıdan model seçmesini iste
         all_models = [name for name, _ in models]
         selected_model_name = st.selectbox("Modelleri Seçin (Maksimum 2)", all_models)
         selected_model_class = [model for name, model in models if name in selected_model_name]
 
+    scol1, scol2 = st.columns(2)
+    with scol1:
+        max_depth = st.number_input("max_depth oranını girin (örn: 0.2):", min_value=1, max_value=50, step=2, value=1)
+    with scol2:
+        n_estimators = st.number_input("n_estimators oranını girin (örn: 0.2):", min_value=10, max_value=100, step=5, value=10)
+
     if len(selected_model_class) == 0:
         st.error("Lütfen en az bir model seçin.", icon="🚨")
         return
 
-    selected_model_class = selected_model_class[0]
+    trainModel = st.button("Modeli Eğit.")
 
-    # Seçilen modelin parametrelerini kullanıcıya göster
-    params = {}
-    st.write(f"Seçilen model: {selected_model_name[0]}")
-    st.write("Bu modelin alabileceği parametreler:")
-    
-    prm_names= []
-    prm_def= []
-    signature = inspect.signature(selected_model_class)
-    for param in signature.parameters.values():
-        if param.name != 'self':
-            prm_names.append(str(param.name))
-            prm_def.append(str(param.default))
+    if trainModel:
+        selected_model_class = selected_model_class[0]
 
-    data = pd.DataFrame({
-                "Parameters": [i for i in prm_names],
-                "Default Value": [i for i in prm_def]
-        })
-    
-    st.dataframe(data)
-    # Kullanıcıdan parametreleri al
-    selected_params = []
-    
-    params = {}
+        # Seçilen modelin parametrelerini kullanıcıya göster
+        params = {}
+        st.write(f"Seçilen model: {selected_model_name}")
+        st.write("Bu modelin alabileceği parametreler:")
 
-    selected_values = st.multiselect("Parametreleri seçin:", prm_names, key="multiselect")
-    mm =''
-    value = None  # Başlangıçta None değeri atanıyor
+        # Model parametrelerini kullanıcıdan al
+        if 'n_estimators' in selected_model_class().get_params():
+            params['n_estimators'] = n_estimators
+        if 'random_state' in selected_model_class().get_params():
+            params['random_state'] = random_state
+        if 'max_depth' in selected_model_class().get_params():
+            params['max_depth'] = max_depth
 
-    # After getting all the parameters, prompt the user to input their values
-    value = None  # Başlangıçta None değeri atanıyor
-    if len(selected_values) > 0:
-        value = st.text_input(f"{selected_values} için  sırasıyla boşluk bırakarak değer gir:")
-    value_list = []
-    if st.button("Params are ready."):
-        value_list = value.split()
-    
-    # Her bir öğeyi uygun türde bir değere dönüştür
-    converted_values = []
-    for val in value_list:
-        if val.lower() == "true":
-            converted_values.append(True)
-        elif val.lower() == "false":
-            converted_values.append(False)
+        st.write(params)
+
+        # Modeli parametrelerle oluştur
+        model = selected_model_class(**params)
+        st.write(model)
+
+        # Veriyi eğitim ve test setine ayır
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+        # Modeli eğit ve test et
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        # Modelin parametrelerini yazdırma
+        # st.write("Model Parametreleri:", model.get_params())
+
+        # Sonuçları değerlendir
+        if selected_model_name in ["LIR", "Ridge Regression", "Lasso Regression", "ElasticNet Regresyon"]:
+            # Regresyon modelleri için
+            mse = mean_squared_error(y_test, y_pred)
+            st.write("Mean Squared Error:", mse)
         else:
-            try:
-                converted_values.append(float(val))
-            except ValueError:
-                converted_values.append(val)  # Hata durumunda aynı değeri kullan
+            # Sınıflandırma modelleri için
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, average='weighted')
+            recall = recall_score(y_test, y_pred, average='weighted')
+            f1 = f1_score(y_test, y_pred, average='weighted')
 
-    print(converted_values)
+            # Sonuçları yazdırma
+            st.write("Accuracy:", accuracy)
+            st.write("Precision:", precision)
+            st.write("Recall:", recall)
+            st.write("F1 Score:", f1)
 
-    params = dict(zip(selected_values, converted_values))
-    st.write(params)
-    # Modeli parametrelerle oluştur
-    model = selected_model_class(**params)
-    st.write(model)
-    
-    # Veriyi eğitim ve test setine ayır
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+        # Yeni veri ile tahmin yapma
+        predict_new_data(model, X.columns, Label_Encoder)
 
-    # Modeli eğit ve test et
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-
-    # Modelin parametrelerini yazdırma
-    #st.write("Model Parametreleri:", model.get_params())
-    # Sonuçları değerlendir
-    if selected_model_name[0] in ["LIR", "Ridge Regression", "Lasso Regression", "ElasticNet Regresyon"]:
-        # Regresyon modelleri için
-        mse = mean_squared_error(y_test, y_pred)
-        st.write("Mean Squared Error:", mse)
-    else:
-        # Sınıflandırma modelleri için
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='weighted')
-        recall = recall_score(y_test, y_pred, average='weighted')
-        f1 = f1_score(y_test, y_pred, average='weighted')
-        
-
-        # Sonuçları yazdırma
-        st.write("Accuracy:", accuracy)
-        st.write("Precision:", precision)
-        st.write("Recall:", recall)
-        st.write("F1 Score:", f1)
-    
-    # Modeli kaydetme
-    save_choice = st.selectbox("Modeli kaydetmek ister misiniz?:", ["Evet", "Hayır"])
-    if save_choice== "Evet":
-        format_choice = st.selectbox("Lütfen kaydetmek istediğiniz dosya formatını seçin:", ["joblib", "pickle", "onnx"])
-        if format_choice == "joblib":
-            # Modeli joblib ile dosyaya kaydetme
-            joblib.dump(model, "model_ATOMai.pkl")
-
-            # Dosyayı Streamlit ile indirme düğmesine bağlama
-            st.download_button("Modeli İndir", "model_ATOMai.pkl", "İndir")
-            #st.download_button("Download some text", joblib.dump(model, "model_ATOMai"))
-        elif format_choice == "pickle":
-            with open("model_ATOMai", 'wb') as f:
-                st.download_button("Download some text", pickle.dump(model, f))
-        elif format_choice == "onnx":
-            text_contents = "text dosyasıdır"
-            st.download_button("Download some text", text_contents)
+        # Modeli kaydetme
+        save_choice = st.selectbox("Modeli kaydetmek ister misiniz?", ["Evet", "Hayır"])
+        if save_choice == "Evet":
+            format_choice = st.selectbox("Lütfen kaydetmek istediğiniz dosya formatını seçin:", ["joblib", "pickle", "onnx"])
+            if format_choice == "joblib":
+                joblib.dump(model, "model_ATOMai.pkl")
+                with open("model_ATOMai.pkl", 'rb') as f:
+                    st.download_button("Modeli İndir", f, file_name="model_ATOMai.pkl")
+            elif format_choice == "pickle":
+                with open("model_ATOMai.pkl", 'wb') as f:
+                    pickle.dump(model, f)
+                with open("model_ATOMai.pkl", 'rb') as f:
+                    st.download_button("Modeli İndir", f, file_name="model_ATOMai.pkl")
+            elif format_choice == "onnx":
+                # ONNX modeli kaydetme kodu burada eklenebilir
+                text_contents = "Bu, bir text dosyasıdır"
+                st.download_button("Download some text", text_contents)
+        else:
+            st.write("Makine Öğrenmesi sonlanmıştır.")
             
         #filename = input("Kaydetmek istediğiniz dosyanın adını girin (örn: model.pkl, model.h5, model.onnx, model.json, model.yaml): ")
-        #save_model(model, format_choice, filename)
-    else:
-        st.write("Makine Öğrenmesi sonlanmıştır.")
-
-    # Yeni veri ile tahmin yapma
-    predict_new_data(model, X.columns, Label_Encoder)
-    
+        #save_model(model, format_choice, filename)   
 
 # FRONTEND
 def frontend():
     st.subheader("Machine Learning")
-    st.write("Automates data cleaning and allows the user to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. Model Selection and Training: By presenting multiple machine learning models to the user, it evaluates the performance of each with different parameters and gives the user the chance to choose the best performing model.")
-    with st.expander("🔗 Machine Learning"):
+    st.write("Makine öğrenmesi, bilgisayarların açıkça programlanmadan verilerden öğrenmesini ve tahminler yapmasını sağlayan bir yapay zeka alt alanıdır. Bu süreçte, bilgisayarlar verilere dayalı olarak kalıpları ve ilişkileri öğrenir ve bu öğrenme sonucunda gelecekteki verilere uygulanan tahminlerde bulunurlar. Makine öğrenmesi, çeşitli algoritmalar ve teknikler kullanarak verilerden anlamlı sonuçlar çıkarır. Makine öğrenmesinin temel bileşenleri veri, model ve algoritmadır. Veri, modelin öğrenmesi için kullanılan örnekleri içerir. Model, verilerden öğrenilen matematiksel bir temsildir. Algoritma ise modeli eğitmek için kullanılan yöntemdir. Makine öğrenmesi, çok çeşitli alanlarda kullanılır. Tahmin ve sınıflandırma en yaygın kullanım alanları arasındadır. Makine öğrenmesi, büyük miktarda veriyi analiz etmek ve bu verilere dayalı kararlar almak için güçlü bir araçtır. Bu, iş dünyasından sağlık sektörüne kadar birçok alanda büyük avantajlar sağlar. Makine öğrenmesi sayesinde, daha doğru tahminler yapılabilir, verimlilik artırılabilir ve yeni keşifler yapılabilir.")
+    with st.expander("🔗 Classification"):
         st.write("Veri işleme ve model seçimi işlemlerini otomatikleştirmek için bu aracı kullanabilirsiniz.")
-        st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
+    with st.expander("🔗 Regression"):
+        st.write("Veri işleme ve model seçimi işlemlerini otomatikleştirmek için bu aracı kullanabilirsiniz.")
+    
+    
+    st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
    
     # Dosya yükleme işlemi için Streamlit'in file_uploader fonksiyonunu kullanma
     uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])

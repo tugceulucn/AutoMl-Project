@@ -484,8 +484,10 @@ def frontend():
                                         auto_cleaning(df)
                                 elif cleaning == "Cleaning the Dataset Yourself":
                                         myself_cleaning(df)
+                                elif cleaning =="Choose":
+                                       st.write("Please select a valid data clearing option.")
                                 else:
-                                        st.write("Please select a valid data clearing option.")
+                                        pass
 
                                 
                 except (pd.errors.EmptyDataError, pd.errors.ParserError):
