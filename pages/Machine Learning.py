@@ -38,6 +38,7 @@ import time
 
 filterwarnings('ignore', category=ConvergenceWarning)
 
+#GENEL FONKSİYONLAR
 def handle_file_upload(uploaded_file):
     try:
         if uploaded_file is None:
@@ -81,6 +82,28 @@ def handle_file_upload(uploaded_file):
     except Exception as e:
         st.error(f"Error reading the file: {e}", icon="🚨")   
 
+def data_preprocessing(df):
+    try:
+        # Yinelenen satırları kaldırma
+        df.drop_duplicates(inplace=True)
+        # Label Encoding işlemi burada gerçekleşecek
+        label_encoder = LabelEncoder()
+        string_columns = df.select_dtypes(include=['object']).columns
+        df[string_columns] = df[string_columns].apply(label_encoder.fit_transform)
+        # Integer değerlere ortalama ile eksik değerleri doldurma
+        integer_columns = df.select_dtypes(include=['int', 'float']).columns
+        df[integer_columns] = df[integer_columns].fillna(df[integer_columns].mean())
+        # String değerlere "Bilinmiyor" ile eksik değerleri doldurma
+        string_columns = df.select_dtypes(include=['object']).columns
+        df[string_columns] = df[string_columns].fillna("Bilinmiyor")
+        
+        return df, label_encoder
+    
+    except Exception as e:
+        st.write(f"Hata: {e}")
+        return None
+
+#AUTOML FONKSİYONLARI
 def find_best_params_classification(name, model, X, Y, test_size_range, random_state_range, max_depth_range):
     best_score = float('-inf')
     best_params = {}
@@ -127,71 +150,6 @@ def find_best_params_regression(name, model, X, Y, test_size_range, random_state
 
     return {'name': name, 'best_params': best_params, 'best_score': best_score}
 
-def save_model(model, format_choice, filename):
-    if format_choice == 'joblib':
-        joblib.dump(model, filename)
-        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
-    elif format_choice == 'pickle':
-        with open(filename, 'wb') as f:
-            pickle.dump(model, f)
-        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
-    elif format_choice == 'onnx':
-        st.write("Bu model ONNX formatında kaydedilemez.")
-    else:
-        st.write("Geçersiz format seçimi! Lütfen 'joblib', 'pickle', 'h5', 'onnx', 'json' veya 'yaml' şeklinde bir format seçin.")
-
-def data_preprocessing(df):
-    try:
-        # Yinelenen satırları kaldırma
-        df.drop_duplicates(inplace=True)
-        # Label Encoding işlemi burada gerçekleşecek
-        label_encoder = LabelEncoder()
-        string_columns = df.select_dtypes(include=['object']).columns
-        df[string_columns] = df[string_columns].apply(label_encoder.fit_transform)
-        # Integer değerlere ortalama ile eksik değerleri doldurma
-        integer_columns = df.select_dtypes(include=['int', 'float']).columns
-        df[integer_columns] = df[integer_columns].fillna(df[integer_columns].mean())
-        # String değerlere "Bilinmiyor" ile eksik değerleri doldurma
-        string_columns = df.select_dtypes(include=['object']).columns
-        df[string_columns] = df[string_columns].fillna("Bilinmiyor")
-        
-        return df, label_encoder
-    
-    except Exception as e:
-        st.write(f"Hata: {e}")
-        return None
-
-def predict_new_data(model, columns, label_encoder):
-    new_data = {}
-    i = 0
-    
-    while i < len(columns):
-        column = columns[i]
-        value = st.text_input(f"{column}: ", key=f"input_{i}")
-        if st.button("Sıradaki", key=f"button_{i}"):
-            if value == "":
-                st.error(f"Lütfen {column} için bir değer girin.")
-            else:
-                new_data[column] = [value if not value.replace('.', '', 1).isdigit() else float(value)]
-                i += 1
-
-    if len(new_data) == len(columns):
-        new_df = pd.DataFrame(new_data)
-        
-        # Yeni verilerin dönüştürülmesi
-        string_columns = new_df.select_dtypes(include=['object']).columns
-        new_df[string_columns] = new_df[string_columns].apply(label_encoder.fit_transform)
-        new_df = new_df.reindex(columns=columns, fill_value=0)
-
-        if not new_df.empty:
-            prediction = model.predict(new_df)
-            st.write("Tahmin edilen hedef değişken:", prediction)
-        else:
-            st.error("Yeterli veri girişi yapılmadı.")
-    else:
-        st.info("Tüm alanları doldurduğunuzdan emin olun.")
-
-#MAKİNE ÖĞRENMESİ
 def automl(df):
     try:
         if df is None:
@@ -308,16 +266,50 @@ def automl(df):
     except Exception as e:
         st.write(f"Hata: {e}")
 
-def manualml(df):
-    if df is None:
-        st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
-        return
-    
-    st.info("İşleminiz bir süre devam edecek. Haydi başlayalım!", icon='🎉')
-    df, Label_Encoder= data_preprocessing(df)  # data_preprocessing fonksiyonu tanımlanmalı veya bu satır kaldırılmalı
+#MANUALML FONKSİYONLARI
+def save_model(model, format_choice, filename):
+    if format_choice == 'joblib':
+        joblib.dump(model, filename)
+        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
+    elif format_choice == 'pickle':
+        with open(filename, 'wb') as f:
+            pickle.dump(model, f)
+        st.write(f"Model başarıyla '{filename}' adlı dosyaya kaydedildi.")
+    elif format_choice == 'onnx':
+        st.write("Bu model ONNX formatında kaydedilemez.")
+    else:
+        st.write("Geçersiz format seçimi! Lütfen 'joblib', 'pickle', 'h5', 'onnx', 'json' veya 'yaml' şeklinde bir format seçin.")
+def get_input_value(key):
+    if key not in st.session_state:
+        st.session_state[key] = ""
+    return st.session_state[key]
 
-    # Kullanılabilir modeller ve bunların adları
-    models = [
+
+def predict_new_data(df, model, columns, label_encoder):
+    new_data = {}
+    row_values = df.iloc[5]
+    st.write(row_values)
+    
+    for column, value in zip(df.columns, row_values):
+        new_data[column] = value
+
+    print(new_data)
+    
+    new_df = pd.DataFrame(new_data, index=[0])
+
+    # Yeni verilerin dönüştürülmesi
+    string_columns = new_df.select_dtypes(include=['object']).columns
+    new_df[string_columns] = new_df[string_columns].apply(label_encoder.fit_transform)
+    new_df = new_df.reindex(columns=columns, fill_value=0)
+
+    st.write("Oluşturulan Sözlük:")
+    st.write(new_data)
+
+    prediction = model.predict(new_df)
+    st.write("Tahmin edilen hedef değişken:", prediction)
+
+# Kullanılabilir modeller ve bunların adları
+models = [
         ("LR", LogisticRegression),
         ("LIR", LinearRegression),
         ("LDA", LinearDiscriminantAnalysis),
@@ -340,36 +332,70 @@ def manualml(df):
         ("ElasticNet Regresyon", ElasticNet)
     ]
 
+
+def manualml(df):
+    if df is None:
+        st.error('Please upload a dataset. If your dataset is prepared for training and testing, go to the next step.', icon="🚨")
+        return
+    
+    st.info("İşleminiz bir süre devam edecek. Haydi başlayalım!", icon='🎉')
+     # data_preprocessing fonksiyonu tanımlanmalı veya bu satır kaldırılmalı
+    # Veri setini uygun hale getirme
+    df.drop_duplicates(inplace=True)
+    df.columns = [kolon.lower() for kolon in df.columns]
+
+    # Label Encoding işlemi
+    label_encoder = LabelEncoder()
+    string_columns = df.select_dtypes(include=['object']).columns
+    df[string_columns] = df[string_columns].apply(label_encoder.fit_transform)
+    st.write("Label Encoding işlemi tamamlandı.")
+
+    # Eksik değerleri doldurma
+    integer_columns = df.select_dtypes(include=['int', 'float']).columns
+    df[integer_columns] = df[integer_columns].fillna(df[integer_columns].mean())
+
+    string_columns = df.select_dtypes(include=['object']).columns
+    df[string_columns] = df[string_columns].fillna("Bilinmiyor")
+    st.write("Eksik değerler dolduruldu.")
+
+
     # X ve y ayrıştırma
     target_variable = st.selectbox("Hedef değişkeni seçin:", df.columns)
     X = df.drop(columns=[target_variable])
     y = df[target_variable]
 
     # Kullanıcıdan test_size ve random_state değerlerini al
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        test_size = st.number_input("Test setinin oranını girin (örn: 0.2):", min_value=0.1, max_value=0.9, step=0.1, value=0.2)
-    with col2:
-        random_state = st.number_input("Random state değerini girin (örn: 42):", min_value=30, step=2, value=30)
-    with col3:
-        # Kullanıcıdan model seçmesini iste
-        all_models = [name for name, _ in models]
-        selected_model_name = st.selectbox("Modelleri Seçin (Maksimum 2)", all_models)
-        selected_model_class = [model for name, model in models if name in selected_model_name]
+    # Kullanıcıdan model seçmesini iste
+    
+    test_size = st.number_input("Test setinin oranını girin (örn: 0.2):", min_value=0.1, max_value=0.9, step=0.1, value=0.2)
+    random_state = st.number_input("Random state değerini girin (örn: 42):", min_value=30, step=2, value=30)
 
-    scol1, scol2 = st.columns(2)
-    with scol1:
+    all_models = [name for name, _ in models]
+    selected_model_name = st.selectbox("Model Seçin: ", all_models)
+    selected_model_class = [model for name, model in models if name in selected_model_name]
+
+    
+    if selected_model_name in ['LR', 'LIR','SVM', 'MLP', 'GaussianProcess', 'Ridge Regression,', 'Lasso Regression', 'ElasticNet Regresyon']:
+        pass
+    elif selected_model_name in ["LDA", "KNNİ" "NB", "CatBoost"]:
+        pass
+    elif selected_model_name == 'DT':
         max_depth = st.number_input("max_depth oranını girin (örn: 0.2):", min_value=1, max_value=50, step=2, value=1)
-    with scol2:
+
+    elif selected_model_name in ['RF', 'GB', 'XGB', 'LGBM', 'ExtraTrees']:
+        max_depth = st.number_input("max_depth oranını girin (örn: 0.2):", min_value=1, max_value=50, step=2, value=1)
         n_estimators = st.number_input("n_estimators oranını girin (örn: 0.2):", min_value=10, max_value=100, step=5, value=10)
 
-    if len(selected_model_class) == 0:
-        st.error("Lütfen en az bir model seçin.", icon="🚨")
-        return
+    elif selected_model_name in ['Bagging', 'AdaBoost']:
+        n_estimators = st.number_input("n_estimators oranını girin (örn: 0.2):", min_value=10, max_value=100, step=5, value=10)
+    else: 
+        pass
 
     trainModel = st.button("Modeli Eğit.")
 
     if trainModel:
+        st.info('Makine öğrenmesi başlamıştır, Lütfen bekleyiniz.', icon="ℹ️")
+
         selected_model_class = selected_model_class[0]
 
         # Seçilen modelin parametrelerini kullanıcıya göster
@@ -414,38 +440,19 @@ def manualml(df):
             f1 = f1_score(y_test, y_pred, average='weighted')
 
             # Sonuçları yazdırma
+            st.write('*Sonuçlar*')
             st.write("Accuracy:", accuracy)
             st.write("Precision:", precision)
             st.write("Recall:", recall)
             st.write("F1 Score:", f1)
 
-        # Yeni veri ile tahmin yapma
-        predict_new_data(model, X.columns, Label_Encoder)
-
-        # Modeli kaydetme
-        save_choice = st.selectbox("Modeli kaydetmek ister misiniz?", ["Evet", "Hayır"])
-        if save_choice == "Evet":
-            format_choice = st.selectbox("Lütfen kaydetmek istediğiniz dosya formatını seçin:", ["joblib", "pickle", "onnx"])
-            if format_choice == "joblib":
-                joblib.dump(model, "model_ATOMai.pkl")
-                with open("model_ATOMai.pkl", 'rb') as f:
-                    st.download_button("Modeli İndir", f, file_name="model_ATOMai.pkl")
-            elif format_choice == "pickle":
-                with open("model_ATOMai.pkl", 'wb') as f:
-                    pickle.dump(model, f)
-                with open("model_ATOMai.pkl", 'rb') as f:
-                    st.download_button("Modeli İndir", f, file_name="model_ATOMai.pkl")
-            elif format_choice == "onnx":
-                # ONNX modeli kaydetme kodu burada eklenebilir
-                text_contents = "Bu, bir text dosyasıdır"
-                st.download_button("Download some text", text_contents)
-        else:
-            st.write("Makine Öğrenmesi sonlanmıştır.")
+            # Yeni veri ile tahmin yapma
+        predict_new_data(df, model, X.columns, label_encoder)
             
         #filename = input("Kaydetmek istediğiniz dosyanın adını girin (örn: model.pkl, model.h5, model.onnx, model.json, model.yaml): ")
         #save_model(model, format_choice, filename)   
 
-# FRONTEND
+# FRONTEND FONKSİYONU
 def frontend():
     st.subheader("Machine Learning")
     st.write("Makine öğrenmesi, bilgisayarların açıkça programlanmadan verilerden öğrenmesini ve tahminler yapmasını sağlayan bir yapay zeka alt alanıdır. Bu süreçte, bilgisayarlar verilere dayalı olarak kalıpları ve ilişkileri öğrenir ve bu öğrenme sonucunda gelecekteki verilere uygulanan tahminlerde bulunurlar. Makine öğrenmesi, çeşitli algoritmalar ve teknikler kullanarak verilerden anlamlı sonuçlar çıkarır. Makine öğrenmesinin temel bileşenleri veri, model ve algoritmadır. Veri, modelin öğrenmesi için kullanılan örnekleri içerir. Model, verilerden öğrenilen matematiksel bir temsildir. Algoritma ise modeli eğitmek için kullanılan yöntemdir. Makine öğrenmesi, çok çeşitli alanlarda kullanılır. Tahmin ve sınıflandırma en yaygın kullanım alanları arasındadır. Makine öğrenmesi, büyük miktarda veriyi analiz etmek ve bu verilere dayalı kararlar almak için güçlü bir araçtır. Bu, iş dünyasından sağlık sektörüne kadar birçok alanda büyük avantajlar sağlar. Makine öğrenmesi sayesinde, daha doğru tahminler yapılabilir, verimlilik artırılabilir ve yeni keşifler yapılabilir.")
