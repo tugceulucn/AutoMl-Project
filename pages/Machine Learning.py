@@ -455,17 +455,17 @@ def manualml(df):
 # FRONTEND FONKSİYONU
 def frontend():
     st.subheader("Machine Learning")
-    st.write("Makine öğrenmesi, bilgisayarların açıkça programlanmadan verilerden öğrenmesini ve tahminler yapmasını sağlayan bir yapay zeka alt alanıdır. Bu süreçte, bilgisayarlar verilere dayalı olarak kalıpları ve ilişkileri öğrenir ve bu öğrenme sonucunda gelecekteki verilere uygulanan tahminlerde bulunurlar. Makine öğrenmesi, çeşitli algoritmalar ve teknikler kullanarak verilerden anlamlı sonuçlar çıkarır. Makine öğrenmesinin temel bileşenleri veri, model ve algoritmadır. Veri, modelin öğrenmesi için kullanılan örnekleri içerir. Model, verilerden öğrenilen matematiksel bir temsildir. Algoritma ise modeli eğitmek için kullanılan yöntemdir. Makine öğrenmesi, çok çeşitli alanlarda kullanılır. Tahmin ve sınıflandırma en yaygın kullanım alanları arasındadır. Makine öğrenmesi, büyük miktarda veriyi analiz etmek ve bu verilere dayalı kararlar almak için güçlü bir araçtır. Bu, iş dünyasından sağlık sektörüne kadar birçok alanda büyük avantajlar sağlar. Makine öğrenmesi sayesinde, daha doğru tahminler yapılabilir, verimlilik artırılabilir ve yeni keşifler yapılabilir.")
-    with st.expander("🔗 Classification"):
-        st.write("Veri işleme ve model seçimi işlemlerini otomatikleştirmek için bu aracı kullanabilirsiniz.")
-    with st.expander("🔗 Regression"):
-        st.write("Veri işleme ve model seçimi işlemlerini otomatikleştirmek için bu aracı kullanabilirsiniz.")
+    st.write("Machine learning is a subfield of artificial intelligence that enables computers to learn from data and make predictions without being explicitly programmed. In this process, computers learn patterns and relationships based on data and make predictions that apply to future data. Machine learning draws meaningful conclusions from data using various algorithms and techniques. The basic components of machine learning are data, model and algorithm. The data contains the examples used for the model to learn. The model is a mathematical representation learned from the data. The algorithm is the method used to train the model. Machine learning is used in a wide variety of fields. Prediction and classification are among the most common uses. Machine learning is a powerful tool for analyzing large amounts of data and making decisions based on that data. This provides great advantages in many fields, from business to healthcare. Through machine learning, more accurate predictions can be made, efficiency can be increased and new discoveries can be made.")
+    with st.expander("🔗 *Important Terms for Machine Learning*"):
+        st.write("Target Variable:: The variable that the model is trying to predict. It is also called the dependent variable in supervised learning. Example: If we want to predict the price of a sample car in a car data set, the target variable is the price.")
+        st.write("Random State: A constant value used for random processes. It is used to ensure repeatability of the model and consistency of results. Example: Random state is used to get the same result when randomly dividing the training and test data.")
+        st.write("Test Size: Determines the proportion of the test set when dividing the data into training and test sets. It is usually specified as a ratio between 0 and 1. Example: test_size=0.2 indicates that 20% of the data will be used as test set and 80% as training set.")
+        st.write("Best Score: The best success metric used to evaluate the performance of the model.)It can refer to the accuracy of the model, accuracy rate, accuracy score performance metric. Example: The greater the accuracy rate best_score of a model, the better the best score.")
     
-    
-    st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
+    st.info('If you want to know more in detail, read our [**manual**](https://docs.google.com/document/d/1sGUF0wu6fIFcyUCQO1Ir_rTdPcdQdK-rz6pm9lkrrxM/edit?usp=sharing).', icon="ℹ️")
    
     # Dosya yükleme işlemi için Streamlit'in file_uploader fonksiyonunu kullanma
-    uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])
+    uploaded_file = st.file_uploader("Upload a file", type=["csv", "json"])
 
     ml_option = st.selectbox("Do you want to do your training yourself or should it be done automatically?", ["Choose", "I'll do it myself.", "Do it."])
 

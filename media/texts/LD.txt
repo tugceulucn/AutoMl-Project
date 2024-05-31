@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 def load_data(file_path):
     if file_path.endswith('.csv'):
@@ -23,7 +23,7 @@ def preprocess_data(df, target_column):
     
     return X, y, le
 
-def random_forest():
+def lda():
     file_path = input("Veri seti dosya yolunu girin (csv veya json): ")
     target_column = input("Hedef değişkenin adını girin: ")
     test_size = float(input("Test setinin oranını girin (0-1 arası): "))
@@ -32,7 +32,7 @@ def random_forest():
     df = load_data(file_path)
     X, y, le = preprocess_data(df, target_column)
     
-    model = RandomForestClassifier()
+    model = LinearDiscriminantAnalysis()
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
     
@@ -42,3 +42,13 @@ def random_forest():
     accuracy = accuracy_score(y_test, y_pred)
     print(f"Model Accuracy: {accuracy}")
     
+    print("Kolonlar:", list(X.columns))
+    predict_data = [input(f"{col} için değer girin: ") for col in X.columns]
+    predict_data = np.array(predict_data).reshape(1, -1)
+    predict_data = le.transform(predict_data)
+    
+    prediction = model.predict(predict_data)
+    print(f"Tahmin edilen değer: {prediction[0]}")
+
+if _name_ == "_main_":
+    lda()

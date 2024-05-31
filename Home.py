@@ -12,7 +12,14 @@ from st_social_media_links import SocialMediaIcons
 def load_lottiefile(filename):
     with open(filename, 'r', encoding='utf-8') as f:
         return json.load(f)
-        
+
+def read_text_file(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        return str(e)
+    
 def frontend():
     # Başlık ve giriş
     st.title("*Welcome to* Atom AI")
@@ -27,7 +34,7 @@ def frontend():
     st.info("If you want to edit your dataset, you should go to the **📈 Datasets** page. If your data set is organized, you can move on to the **🌍 Machine Learning** or **📊 Deep Learning** pages.", icon="ℹ️")
         
     # Uygulama hakkında bilgi veren "About" sekmeleri
-    about1, about2, about3, about4 = st.tabs(["Vision & Mission", "Why AutoML?", "What are we doing?", "What are we aiming for?"])
+    about1, about2, about3 = st.tabs(["Vision & Mission", "What are we doing?", "What are we aiming for?"])
     with about1:
         animation, text = st.columns([1, 3]) #Sekme kolonlarında 1'e 3 oran vardır.
         with animation:
@@ -41,28 +48,30 @@ def frontend():
             st.subheader("Our Mission")
             st.write("Mission is to provide an interactive automated artificial intelligence platform by focusing on the problems and needs in the fields of data science and artificial intelligence.")
     with about2:
-        st.subheader("Why AutoML?")
-        st.write("The automated machine learning (AutoML) approach leverages more than 20 different models, which gives our project flexibility and wide applicability. Written in Python, this project is situated in a popular and emerging field that meets the requirements in data science, deep learning and machine learning. AutoML automates the training, tuning and deployment of machine learning models, allowing users to select and use the most appropriate model. This reduces the complexity of data science and artificial intelligence applications, reaching a wider audience of users. Data science and machine learning are increasingly in demand among professionals across different industries, enabling individuals with these skills to gain a competitive advantage in the business world. Traditional machine learning processes are often complex and time-consuming. Steps such as code writing, model selection, hyperparameter optimization and data preprocessing require technical knowledge and experience. However, AutoML automates these processes, enabling users to achieve faster and more effective results.")
-    with about3:
         text, animation = st.columns([0.7, 0.3])
         with text:
             st.subheader("What Are We Doing?")
-            st.write("Makine öğrenmesi derin öğrenmenin daha sabit ve kolay halidir. Autom AI makine öğrenmesi için yalnızca CSV ve Json veri setlerini desteklemektedir. Derin öğrenme makine öğrenmesine göre daha özelleştirilebilir. Autom AI derin öğrenme için yalnızca İmage veri tipini desteklemektedir. Autom AI sayfaları hakkında bilgi: ")
-            st.write("Home(Bu sayfa): Web sitesine girildiğinde ilk karşılaşılan sayfadır. Home sayfası uygulama hakkında vizyon ve misyon bilgilerin, ne yapıldığı gibi uygulamayı tanıtacak bilgi ve yönlendirmelere sahip olan sayfadır.")
-            st.write("Datasets: Bu sayfada kullanıcının yüklediği veri setleri gözükecektir. Veri düzenleme, label encoding, one hot encoding, standartlaştırma ve normalizasyon işlemleri bu sayfada gerçekleşir.")
-            st.write("Machine Learning: Burada yüklenilen veri setleri üzerinden seçilen model ile ilgili eğitim yapılabilecektir.  İsterlerse eğitilen modeli istedikleri formatta indirebilirler ve örnek veri girerek hedefi tahmin edebilirler.")
-            st.write("Deep Learning: Burada yüklenilen veri seti üzerinden, seçilen özellikler ile derin öğrenme modeli eğitebilirler. İsterlerse eğitilen modeli istedikleri formatta indirebilirler ve örnek veri girerek hedefi tahmin edebilirler.")
+            st.write("Autom AI allows users to analyze data sets, edit data sets, perform machine learning and deep learning without the need for software. Machine learning is a more stable and easier version of deep learning. Autom AI only supports CSV and Json data sets for machine learning. It supports 20 different machine learning models. Deep learning is more customizable than machine learning. Autom AI only supports the Image data type for deep learning. it is useful because it supports a variety of features.")
         with animation: 
             st_lottie(lottie_comp, speed=1,
                 reverse=False, loop=True,
                 quality="low",  # medium ; high
                 width=None, key=None, height=200)
-    with about4:
+    with about3:
         st.subheader("What Are We Aiming For?")
-        st.write("• Data Cleaning and Preprocessing**: The project automates data cleaning steps such as filling in missing data, deleting unnecessary columns. It also allows users to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. ")
-        st.write("• Model Selection and Training**: By presenting multiple machine learning models to users, it evaluates the performance of each with different parameters and gives them the chance to choose the best performing model.")
-        st.write("• Prediction Capability**: It allows users to make real-time forecasts for the data set at hand. The user can make predictions with the selected model based on the data entered manually.")
+        st.write("We want to enable people with or without software knowledge to develop their own artificial intelligence projects without using any programming language, using their own data sets or using various ready-made data sets in the application to perform automatic data analysis and automatic data editing, and we want to enable them to develop, record and test their projects by finding the best features of their projects using a helper language model together with more specialized models.")
 
+    # Metinleri tanımlama
+    pages_info = {
+        "Home": "It is the first page encountered when entering the website. Home page is the page that has information about the vision and mission of the application, information and directions to introduce the application such as what it does.",
+        "Datasets": "This page shows the datasets uploaded by the user. Data editing, label encoding, one hot encoding, standardization and normalization operations are performed on this page.",
+        "Machine Learning": "Here, the user can train the selected model on the uploaded data sets. If they wish, they can download the trained model in the format they want and predict the target by entering sample data.",
+        "Deep Learning": "They can train a deep learning model with the selected features over the data set uploaded here. If they wish, they can download the trained model in the format they want and predict the target by entering sample data."
+    }
+
+    # DataFrame oluşturma
+    df = pd.DataFrame(list(pages_info.items()), columns=["Page", "Description"])
+    st.write("**OUR PAGES**", df)
     # Bilgilendirici İstatistklerin verilmesi
     with st.container():
         col1, col2, col3 = st.columns(3)
@@ -149,6 +158,26 @@ def frontend():
     with col2:
         st.write("Machine Learning (ML) is a subset of artificial intelligence that enables computers to learn from data without being explicitly programmed, and it is divided into three main categories: supervised, unsupervised, and reinforcement learning. ML algorithms discover patterns and relationships in data and use this information for future predictions or decisions. Deep Learning (DL), on the other hand, is a subset of ML that learns from more complex data using multi-layered artificial neural networks. DL excels particularly in large datasets and complex tasks, such as image and speech recognition. Deep Learning offers a sophisticated and effective approach to solving more intricate problems compared to Machine Learning by improving inter-layer learning and data representation, enabling deeper and more detailed analysis.")
 
+    directory = "media/texts"
+    
+    if not os.path.isdir(directory):
+        st.error(f"Klasör mevcut değil: {directory}")
+        return
+
+    file_list = [f for f in os.listdir(directory) if f.endswith(".txt")]
+    
+    if not file_list:
+        st.error("Klasörde .txt dosyası bulunamadı.")
+        return
+
+    selected_file = st.selectbox("Hangi dosyayı görüntülemek istiyorsun?", file_list)
+
+    if selected_file:
+        file_path = os.path.join(directory, selected_file)
+        content = read_text_file(file_path)
+        #st.write(f"Dosya: {selected_file}")
+        st.code(content, language="Python")
+    
     st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
 
     #Ekibi tanıtma.

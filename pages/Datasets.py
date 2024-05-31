@@ -39,8 +39,6 @@ def scaling(df, choose):
                st.write("Geçersiz seçim")
                return df
 
-
-
 #Animasyon ekleme
 def load_lottiefile(filename):
     with open(filename, 'r', encoding='utf-8') as f:
@@ -288,6 +286,7 @@ def prepare_data(df, operations, deleted, missing, normalize_columns, scaling):
                pass
 
     # Veri setini CSV formatında indirme işlemi
+    st.success('Your model has been successfully cleaned and you can download it.!', icon="✅")
     csv = convert_df(newdata)
     st.download_button(
         label="Download Data",
@@ -295,7 +294,7 @@ def prepare_data(df, operations, deleted, missing, normalize_columns, scaling):
         file_name="updatedDataset.csv",
         mime="text/csv",)
     
-    st.write(islemler)
+    #st.write(islemler)
 
 def auto_cleaning(df):
         op = ["Remove Duplicate Rows", "Lowercase Column Names", "Lowercase Values in Object Data" "Fill Missing Values with -Unknown- in String Values", "One-Hot Encoding"]
@@ -330,12 +329,11 @@ def myself_cleaning(df):
                 
                 if st.button("Clean"):
                         prepare_data(df, operations, delete_columns, missing_columns, normalize_columns, scaling_type)
-                
-
+             
 #### FRONTEND
 def frontend():
         st.header("Data Set Cleaning and Editing")
-        st.write("Automates data cleaning steps such as filling in missing data and deleting unnecessary columns. It also allows the user to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. Model Selection and Training: By presenting multiple machine learning models to the user, it evaluates the performance of each with different parameters and gives the user the chance to choose the best performing model.")
+        #st.write("Automates data cleaning steps such as filling in missing data and deleting unnecessary columns. It also allows the user to perform basic pre-processing steps such as Label Encoding or One-Hot Encoding. Model Selection and Training: By presenting multiple machine learning models to the user, it evaluates the performance of each with different parameters and gives the user the chance to choose the best performing model.")
         with st.expander("👀 Data Analysis"):
                 st.write("Data analysis is the process of transforming raw data into meaningful information. It starts with collecting, cleaning, exploring and visualizing data. This is followed by data transformation and modeling. Analysis results are interpreted and reported and contribute to decision-making processes. Programming languages such as Python and R offer powerful tools for data analysis. Accurate data analysis helps businesses make strategic decisions and improve performance.")
         with st.expander("🔗 Data Cleaning"):
@@ -364,11 +362,10 @@ def frontend():
                         else:
                                 st.write("Aradığınız anahtar kelimeye uygun bir veri seti bulunamadı. ")
                         
-        st.info('If you want to know more in detail, read our [**manual**](https://www.retmon.com/blog/veri-gorsellestirme-nedir#:~:text=Veri%20g%C3%B6rselle%C5%9Ftirme%3B%20verileri%20insan%20beyninin,i%C3%A7in%20kullan%C4%B1lan%20teknikleri%20ifade%20eder.).', icon="ℹ️")
+        st.info('If you want to know more in detail, read our [**manual**](https://docs.google.com/document/d/1sGUF0wu6fIFcyUCQO1Ir_rTdPcdQdK-rz6pm9lkrrxM/edit?usp=sharing).', icon="ℹ️")
 
         # Dosya yükleme işlemi için Streamlit'in file_uploader fonksiyonunu kullanma
-        uploaded_file = st.file_uploader("Upload a file", type=["csv", "yaml", "json", "zip"])
-        st.caption("You can upload your dataset in CSV, YAML, JSON and ZIP formats. The process is carried out by converting csv, yaml and json files to cv format. ZIP files are image files. Make sure that your ZIP file does not contain text or other contradictory files.")
+        uploaded_file = st.file_uploader("Upload a file", type=["csv", "json"])
 
         #Dosya türünü analiz eder ve dosya türü json veya yaml ise csv dosyasına çevirir.
         #Analiz ve temizleme işlemleri sekmeli sayfada yapılır.
@@ -478,8 +475,6 @@ def frontend():
                                 st.error('Please upload a dataset. If your dataset prepare for train and testing, go to next  step.', icon="🚨")
                         else:
                                 cleaning = st.selectbox("Do you want to clean the data yourself or have it cleaned automatically?", ["Choose", "Auto Dataset Cleaning", "Cleaning the Dataset Yourself"])
-
-                
                                 if cleaning == "Auto Dataset Cleaning":
                                         auto_cleaning(df)
                                 elif cleaning == "Cleaning the Dataset Yourself":
@@ -488,8 +483,6 @@ def frontend():
                                        st.write("Please select a valid data clearing option.")
                                 else:
                                         pass
-
-                                
                 except (pd.errors.EmptyDataError, pd.errors.ParserError):
                         st.error('Yüklenen veri seti boş veya geçersiz.', icon="🚨")
                 except Exception as e:
@@ -498,7 +491,6 @@ def frontend():
 if __name__ == "__main__":
        # Sayfa adını ve sayfanın geniş olmasını sağlama
         st.set_page_config(page_title="ATOM AI", layout="wide", initial_sidebar_state="expanded")
-        
         frontend()
 
         

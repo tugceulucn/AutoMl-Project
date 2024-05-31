@@ -1,0 +1,13 @@
+# Eğitim verisi üzerinde doğruluk skoru hesaplama
+train_accuracy = accuracy_score(y_train, model.predict(X_train))
+
+# Test verisi üzerinde doğruluk skoru hesaplama
+test_accuracy = accuracy_score(y_test, model.predict(X_test))
+
+# Overfitting miktarını belirleme
+overfitting_amount = train_accuracy - test_accuracy
+
+# Sonuçları yazdırma
+print("Eğitim seti doğruluk skoru:", train_accuracy)
+print("Test seti doğruluk skoru:", test_accuracy)
+print("Overfitting miktarı:", overfitting_amount)

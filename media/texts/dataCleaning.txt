@@ -1,0 +1,140 @@
+Otomatik veri seti düzenleyici
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
+
+def prepare_data(df):
+    # Yinelenen satırları kaldırma
+    df.drop_duplicates(inplace=True)
+
+    # Sütun adlarını küçük harfe dönüştürme
+    df.columns = [kolon.lower() for kolon in df.columns]
+
+    # Sadece object veri tipinde olan sütunlardaki değerleri küçük harfe dönüştürme
+    object_columns = df.select_dtypes(include=['object']).columns
+    df[object_columns] = df[object_columns].apply(lambda x: x.astype(str).str.lower())
+
+    # Gereksiz kolonları silme
+    silinecek_kolonlar = input("Silmek istediğiniz kolon isimlerini virgülle ayırarak girin veya 'hayır' yazın: ")
+    if silinecek_kolonlar.lower() != 'hayır':
+        silinecek_kolon_listesi = [kolon.strip() for kolon in silinecek_kolonlar.split(',')]
+        df = df.drop(columns=silinecek_kolon_listesi)
+        print("Kolonlar silindi.")
+    else:
+        print("Kolon silme işlemi yapılmadı.")
+
+    # String değerlere "Bilinmiyor" ile eksik değerleri doldurma
+    string_columns = df.select_dtypes(include=['object']).columns
+    df[string_columns] = df[string_columns].fillna("bilinmiyor")
+
+    # Label Encoding veya One-Hot Encoding
+    while True:
+        secim = input("Lütfen yapmak istediğiniz işlemi seçin:\n1. Label Encoding\n2. One-Hot Encoding\n3. Atla\nSeçiminiz (1, 2 veya 3): ")
+        if secim == "1":
+            label_encoder = LabelEncoder()
+            string_columns = df.select_dtypes(include=['object']).columns
+            df[string_columns] = df[string_columns].apply(label_encoder.fit_transform)
+            print("Label Encoding işlemi tamamlandı.")
+            break
+        elif secim == "2":
+            df = pd.get_dummies(df)
+            print("One-Hot Encoding işlemi tamamlandı.")
+            break
+        elif secim == "3":
+            print("Kodlama adımı atlanıyor...")
+            break
+        else:
+            print("Geçersiz seçim. Lütfen sadece 1, 2 veya 3 girin.")
+
+    # Eksik değerlere sahip sütunları bulma ve doldurma
+    sutunlar_eksik_deger = df.columns[df.isnull().any()].tolist()
+    if not sutunlar_eksik_deger:
+        print("Veri setinde eksik değer içeren sütun bulunmuyor.")
+    else:
+        while True:
+            secim = input("Eksik değerleri doldurmak istediğiniz kolon isimlerini virgülle ayırarak girin veya 'tümü' yazarak tüm sütunları seçin: ")
+            if secim.lower() == 'tümü':
+                secilen_sutunlar = df.columns.tolist()
+                break
+            else:
+                secilen_sutunlar = [sutun.strip() for sutun in secim.split(',')]
+                hatali_sutunlar = [s for s in secilen_sutunlar if s not in df.columns]
+                if hatali_sutunlar:
+                    print(f"Geçersiz sütunlar: {', '.join(hatali_sutunlar)}")
+                else:
+                    break
+
+        for kolon in secilen_sutunlar:
+            if df[kolon].isnull().any():
+                if df[kolon].dtype in ['int64', 'float64']:
+                    imputer = SimpleImputer(strategy='mean')
+                    df[[kolon]] = imputer.fit_transform(df[[kolon]])
+                    print(f"{kolon} sütunundaki eksik değerler ortalama ile dolduruldu.")
+                else:
+                    print(f"{kolon} sütunu sayısal bir veri tipine sahip değil, eksik değerler doldurulmadı.")
+
+    return df
+
+def main():
+    # Veri setini yükle
+    dosya_adi = input("Lütfen veri setinin dosya adını girin (CSV veya JSON formatında): ")
+
+    if dosya_adi.lower().endswith('.csv'):
+        veri = pd.read_csv(dosya_adi)
+    elif dosya_adi.lower().endswith('.json'):
+        veri = pd.read_json(dosya_adi)
+    else:
+        print("Geçersiz dosya formatı. Lütfen CSV veya JSON formatında bir dosya girin.")
+        return
+
+    # Veriyi temizle
+    temizlenmis_veri = prepare_data(veri)
+
+    # Ölçeklendirme ve Normalizasyon seçenekleri
+    while True:
+        scale_choice = input(
+            "Lütfen yapmak istediğiniz işlemi seçin:\n"
+            "1. Standard Scaling (Z-Score Scaling)\n"
+            "2. Min-Max Scaling\n"
+            "3. Robust Scaling\n"
+            "4. MaxAbs Scaling\n"
+            "5. Atla\n"
+            "Seçiminiz (1, 2, 3, 4 veya 5): "
+        )
+        numeric_columns = temizlenmis_veri.select_dtypes(include=['int64', 'float64']).columns
+        if scale_choice == "1":
+            scaler = StandardScaler()
+            temizlenmis_veri[numeric_columns] = scaler.fit_transform(temizlenmis_veri[numeric_columns])
+            print("Standard Scaling işlemi tamamlandı.")
+            break
+        elif scale_choice == "2":
+            scaler = MinMaxScaler()
+            temizlenmis_veri[numeric_columns] = scaler.fit_transform(temizlenmis_veri[numeric_columns])
+            print("Min-Max Scaling işlemi tamamlandı.")
+            break
+        elif scale_choice == "3":
+            scaler = RobustScaler()
+            temizlenmis_veri[numeric_columns] = scaler.fit_transform(temizlenmis_veri[numeric_columns])
+            print("Robust Scaling işlemi tamamlandı.")
+            break
+        elif scale_choice == "4":
+            scaler = MaxAbsScaler()
+            temizlenmis_veri[numeric_columns] = scaler.fit_transform(temizlenmis_veri[numeric_columns])
+            print("MaxAbs Scaling işlemi tamamlandı.")
+            break
+        elif scale_choice == "5":
+            print("Ölçeklendirme adımı atlanıyor...")
+            break
+        else:
+            print("Geçersiz seçim. Lütfen sadece 1, 2, 3, 4 veya 5 girin.")
+
+    # Düzenlenmiş veriyi aynı dosyaya kaydet
+    if dosya_adi.lower().endswith('.csv'):
+        temizlenmis_veri.to_csv(dosya_adi, index=False)
+        print("Düzenlenmiş veri aynı dosyaya CSV olarak kaydedildi.")
+    elif dosya_adi.lower().endswith('.json'):
+        temizlenmis_veri.to_json(dosya_adi, orient='records', lines=True)
+        print("Düzenlenmiş veri aynı dosyaya JSON olarak kaydedildi.")
+
+if _name_ == "_main_":
+    main()
